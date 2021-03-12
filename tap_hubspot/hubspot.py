@@ -256,8 +256,10 @@ class Hubspot:
             "properties": MANDATORY_PROPERTIES["deals"],
         }
         offset_key = "after"
+        replication_path = ["updatedAt"]
         yield from self.get_records(
             path,
+            replication_path,
             params=params,
             data_field=data_field,
             offset_key=offset_key,
@@ -443,6 +445,7 @@ class Hubspot:
                 "contacts",
                 "companies",
                 "deal_pipelines",
+                "deals",
             ]:
                 replication_value = parser.isoparse(
                     self.get_value(record, replication_path)
