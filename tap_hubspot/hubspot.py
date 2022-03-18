@@ -4,7 +4,7 @@ import ratelimit
 import singer
 import backoff
 from datetime import datetime, timezone
-from typing import Dict, Optional, DefaultDict, Set
+from typing import Dict, Iterable, Optional, DefaultDict, Set, List, Any, Tuple
 from dateutil import parser
 
 
@@ -50,12 +50,12 @@ MANDATORY_PROPERTIES = {
         "became_a_opportunity_date",  # trengo custom field
         "class",  # trengo custom field
         "hs_additional_domains",
-        "marketing_pipeline_value_in__", # capmo
-        "recent_conversion_date", # capmo
-        "recent_conversion_event_name", # capmo
-        "first_conversion_date", # capmo
-        "first_conversion_event_name", # capmo
-        "company__target_market__tiers_", # capmo
+        "marketing_pipeline_value_in__",  # capmo
+        "recent_conversion_date",  # capmo
+        "recent_conversion_event_name",  # capmo
+        "first_conversion_date",  # capmo
+        "first_conversion_event_name",  # capmo
+        "company__target_market__tiers_",  # capmo
     ],
     "contacts": [
         "email",
@@ -115,9 +115,10 @@ MANDATORY_PROPERTIES = {
         "went_mql_date",
         "original_mql_date_before_reset",
         "converting_touch",
-        "mql_date" # humanforce
+        "mql_date",  # humanforce
     ],
     "deals": [
+        "hs_lastmodifieddate",
         "hs_deal_amount_calculation_preference",
         "hs_forecast_amount",
         "amount",
@@ -161,17 +162,18 @@ MANDATORY_PROPERTIES = {
         "outreach_date",  # pixelz_com
         "disco_demo_date",  # pixelz_com
         "sql_date",  # pixelz_com
-        "pilot_date", # pixelz_com
-        "proposal_date", # pixelz_com
-        "closed_won_date", # pixelz_com
-        "closed_lost_date", # pixelz_com
-        "funding_tranche_revenue_cloned_", # capchase 
-        "true_source", # sendcloud_com
-        "date_became_sql", # sendcloud_com
-        "sql_date", # sendcloud_com
-        "deal_valid___scp", # sendcloud_com
+        "pilot_date",  # pixelz_com
+        "proposal_date",  # pixelz_com
+        "closed_won_date",  # pixelz_com
+        "closed_lost_date",  # pixelz_com
+        "funding_tranche_revenue_cloned_",  # capchase
+        "true_source",  # sendcloud_com
+        "date_became_sql",  # sendcloud_com
+        "sql_date",  # sendcloud_com
+        "deal_valid___scp",  # sendcloud_com
     ],
 }
+
 
 class Hubspot:
     BASE_URL = "https://api.hubapi.com"
@@ -223,6 +225,174 @@ class Hubspot:
         else:
             raise NotImplementedError(f"unknown stream_id: {self.tap_stream_id}")
 
+    def get_contacts(
+        self, start_date: datetime, end_date: datetime
+    ) -> Iterable[Tuple[Dict, datetime]]:
+        filter_key = "lastmodifieddate"
+        obj_type = "contacts"
+        gen = self.search(
+            obj_type,
+            filter_key,
+            start_date,
+            end_date,
+            MANDATORY_PROPERTIES[f"{obj_type}"],
+        )
+
+        while True:
+            deals = {}
+            i = 0
+
+            for rec, ts in gen:
+                rec_id = rec["id"]
+                # ensure that there is a default entry for all contacts/companies
+                rec["associations"] = {
+                    # fit the legacy format to be backwards compatible:
+                    # "results": [{ "id": "<id>" }]
+                    "deals": {"results": []},
+                    "companies": {"results": []},
+                }
+
+                deals[rec_id] = rec
+                i += 1
+                if i >= 10:
+                    break
+
+            ids = list(deals.keys())
+
+            for id, ass in self.get_associations(obj_type, "deals", ids):
+                deals[id]["associations"]["deals"] = {"results": ass}
+
+            for id, ass in self.get_associations(obj_type, "companies", ids):
+                deals[id]["associations"]["companies"] = {"results": ass}
+
+            for deal in deals.values():
+                yield deal, parser.isoparse(
+                    self.get_value(deal, ["properties", filter_key])
+                )
+
+    def get_associations(
+        self,
+        from_obj: str,
+        to_obj: str,
+        ids: List[str],
+    ) -> Iterable[Tuple[str, List[Dict[str, str]]]]:
+        body = {"inputs": [{"id": id} for id in ids]}
+        path = f"/crm/v3/associations/{from_obj.title()}/{to_obj.title()}/batch/read"
+
+        resp = self.do("POST", path, json=body)
+
+        data = resp.json()
+
+        associations = data.get("results", [])
+        for ass in associations:
+            from_id = ass["from"]["id"]
+            yield from_id, [{"id": o["id"]} for o in ass["to"]]
+
+    def search(
+        self,
+        object_type: str,
+        filter_key: str,
+        start_date: datetime,
+        end_date: datetime,
+        properties: List[str],
+        limit=100,
+    ) -> Iterable[Tuple[Dict, datetime]]:
+        path = f"/crm/v3/objects/{object_type}/search"
+        max_ts: Optional[datetime] = None
+        after: int = 0
+        records_total: int = 0
+        records_count: int = 0
+        while True:
+            try:
+                body = self.build_search_body(
+                    start_date,
+                    end_date,
+                    properties,
+                    filter_key,
+                    after,
+                    limit=limit,
+                )
+                resp = self.do(
+                    "POST",
+                    path,
+                    json=body,
+                )
+            except requests.HTTPError as err:
+                if err.response.status_code == 520:
+                    continue
+                raise
+
+            data = resp.json()
+            records = data.get("results", [])
+
+            if not records:
+                return
+
+            for record in records:
+                ts_str = self.get_value(record, ["properties", filter_key])
+                ts = parser.isoparse(ts_str)
+                if max_ts is None or max_ts < ts:
+                    max_ts = ts
+
+                yield record, ts
+
+            records_count += len(records)
+
+            # all search-endpoints will fail with a 400 after 10,000 records returned
+            # (not pages). We use the last record in the last page to filter on.
+            if records_count == 10000:
+                records_total += records_count
+                assert max_ts is not None
+                # reset all pagination values
+                after = 0
+                start_date = max_ts
+                records = 0
+                continue
+
+            # pagination
+            page_after: Optional[str] = (
+                data.get("paging", {}).get("next", {}).get("after", None)
+            )
+
+            # when there are no more results for the query/after combination
+            # the paging.next.after will not be present in the payload
+            if page_after is None:
+                return
+
+            after = int(page_after)
+
+    def build_search_body(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        properties: list,
+        filter_key: str,
+        after: int,
+        limit: int = 100,
+    ):
+        return {
+            "filterGroups": [
+                {
+                    "filters": [
+                        {
+                            "propertyName": filter_key,
+                            "operator": "GTE",
+                            "value": str(int(start_date.timestamp() * 1000)),
+                        },
+                        {
+                            "propertyName": filter_key,
+                            "operator": "LT",
+                            "value": str(int(end_date.timestamp() * 1000)),
+                        },
+                    ]
+                }
+            ],
+            "properties": properties,
+            "sorts": [{"propertyName": filter_key, "direction": "ASCENDING"}],
+            "limit": limit,
+            "after": after,
+        }
+
     def get_properties(self, object_type: str):
         path = f"/crm/v3/properties/{object_type}"
         data_field = "results"
@@ -263,21 +433,6 @@ class Hubspot:
             offset_key=offset_key,
         )
 
-    def get_contacts(self, start_date: datetime, end_date: datetime):
-        self.event_state["contacts_start_date"] = start_date
-        self.event_state["contacts_end_date"] = end_date
-        path = "/crm/v3/objects/contacts"
-        data_field = "results"
-        offset_key = "after"
-        replication_path = ["updatedAt"]
-        params = {"limit": 100, "properties": MANDATORY_PROPERTIES["contacts"]}
-        yield from self.get_records(
-            path,
-            replication_path,
-            params=params,
-            data_field=data_field,
-            offset_key=offset_key,
-        )
 
     def get_engagements(self):
         path = "/engagements/v1/engagements/paged"
@@ -585,6 +740,49 @@ class Hubspot:
             LOGGER.debug(response.url)
             response.raise_for_status()
             return response.json()
+
+    @backoff.on_exception(
+        backoff.expo,
+        (
+            requests.exceptions.RequestException,
+            requests.exceptions.ReadTimeout,
+            requests.exceptions.Timeout,
+            requests.exceptions.HTTPError,
+            ratelimit.exception.RateLimitException,
+            RetryAfterReauth,
+        ),
+        max_tries=10,
+    )
+    @limits(calls=100, period=10)
+    def do(
+        self,
+        method: str,
+        url: str,
+        data: Optional[Any] = None,
+        json: Optional[Any] = None,
+        params: Optional[Any] = None,
+    ) -> requests.Response:
+        params = params or {}
+        url = f"{self.BASE_URL}{url}"
+        headers = {"Authorization": f"Bearer {self.access_token}"}
+
+        with self.SESSION.request(
+            method,
+            url,
+            headers=headers,
+            params=params,
+            timeout=self.timeout,
+            json=json,
+            data=data,
+        ) as response:
+            if response.status_code == 401:
+                # attempt to refresh access token
+                self.refresh_access_token()
+                raise RetryAfterReauth
+
+            LOGGER.debug(response.url)
+            response.raise_for_status()
+            return response
 
     def test_endpoint(self, url, params={}):
         url = f"{self.BASE_URL}{url}"
