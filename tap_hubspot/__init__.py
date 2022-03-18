@@ -10,21 +10,19 @@ from collections import defaultdict
 from typing import DefaultDict, Set
 
 STREAMS = {
-    "companies": {"bookmark_key": "updatedAt"},
-    "owners": {"bookmark_key": "updatedAt"},
-    "forms": {"bookmark_key": "updatedAt"},
-    "contacts": {
-        "bookmark_key": "updatedAt",
-    },
-    "contacts_events": {"bookmark_key": "lastSynced"},
-    "deal_pipelines": {"bookmark_key": "updatedAt"},
-    "engagements": {"bookmark_key": "lastUpdated"},
-    "submissions": {},
-    "email_events": {"bookmark_key": "created"},
-    "deals": {"bookmark_key": "updatedAt"},
-    "deal_properties": {"bookmark_key": "updatedAt"},
-    "contact_properties": {"bookmark_key": "updatedAt"},
-    "company_properties": {"bookmark_key": "updatedAt"},
+    #"companies": {"bookmark_key": "updatedAt"},
+    #"owners": {"bookmark_key": "updatedAt"},
+    #"forms": {"bookmark_key": "updatedAt"},
+    "contacts": {"bookmark_key": "updatedAt"},
+    #"contacts_events": {"bookmark_key": "lastSynced"},
+    #"deal_pipelines": {"bookmark_key": "updatedAt"},
+    #"engagements": {"bookmark_key": "lastUpdated"},
+    #"submissions": {},
+    #"email_events": {"bookmark_key": "created"},
+    #"deals": {"bookmark_key": "updatedAt"},
+    #"deal_properties": {"bookmark_key": "updatedAt"},
+    #"contact_properties": {"bookmark_key": "updatedAt"},
+    #"company_properties": {"bookmark_key": "updatedAt"},
 }
 REQUIRED_CONFIG_KEYS = [
     "start_date",

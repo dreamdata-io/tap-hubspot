@@ -199,7 +199,7 @@ class Hubspot:
         elif self.tap_stream_id == "companies":
             yield from self.get_companies()
         elif self.tap_stream_id == "contacts":
-            yield from self.get_contacts(start_date=start_date, end_date=end_date)
+            yield from self.get_contacts(start_date=start_date)
         elif self.tap_stream_id == "engagements":
             yield from self.get_engagements()
         elif self.tap_stream_id == "deal_pipelines":
@@ -262,22 +262,100 @@ class Hubspot:
             data_field=data_field,
             offset_key=offset_key,
         )
+        
+    def create_inputs(self, ids_list: list):
+        for id in ids_list:
+            yield {"id": id["id"]}
 
-    def get_contacts(self, start_date: datetime, end_date: datetime):
-        self.event_state["contacts_start_date"] = start_date
-        self.event_state["contacts_end_date"] = end_date
-        path = "/crm/v3/objects/contacts"
-        data_field = "results"
-        offset_key = "after"
+    def create_params(self, after: int, start_date: datetime, end_date: datetime, properties: list, property_name: str, limit: int = 100):
+        return {
+            "filterGroups": [
+                {
+                    "filters": [
+                        {
+                            "propertyName": property_name,
+                            "operator": "GTE",
+                            "value": str(int(start_date.timestamp() * 1000))
+                        },
+                        {
+                            "propertyName": property_name,
+                            "operator": "LT",
+                            "value": str(int(end_date.timestamp() * 1000))
+                        }
+                    ]
+                }
+            ],
+            "properties": properties,
+            "sorts": [
+                {"propertyName": property_name, "direction": "ASCENDING"}
+            ],
+            "limit": limit,
+            "after": after
+        }
+
+    def get_contacts(self, start_date: datetime):
         replication_path = ["updatedAt"]
-        params = {"limit": 100, "properties": MANDATORY_PROPERTIES["contacts"]}
-        yield from self.get_records(
-            path,
-            replication_path,
-            params=params,
-            data_field=data_field,
-            offset_key=offset_key,
-        )
+        property_name = "lastmodifieddate"
+        path = "/crm/v3/objects/contacts/search"
+        end_date = datetime.now(timezone.utc)
+
+        max_ts: Optional[datetime] = None
+        after = 0
+        total_records = 0
+        records = 0
+
+        while True:
+            try:
+                resp = self.call_api_post(path, self.create_params(after, start_date, end_date, MANDATORY_PROPERTIES["contacts"], property_name))
+            except requests.HTTPError as err:
+                if err.response.status_code == 520:
+                    continue
+                raise
+
+            data = resp.json()
+            results = data.get("results", [])
+
+            if not results:
+                return
+
+            inputs = self.create_inputs(results)
+            associations_params = {"inputs": [i for i in inputs]}
+            associations = ["deals"]
+            ##associations = ["engagements"]
+            ##associations = ["companies"]
+            ##associations = ["deals", "engagements"]
+            ##associations = ["deals", "companies", "engagements"]
+
+            associattions2 = {}
+
+            for association in associations:
+                endpoint = f"/crm/v3/associations/companies/{association}/batch/read"
+                batch = self.call_api_post(endpoint, associations_params)
+                batch_results = batch.json()["results"]
+
+            print(batch)
+
+            for res in results:
+                records+=1
+                replication_value = self.get_value(res, replication_path)
+                ts = parser.isoparse(replication_value)
+                if max_ts is None or max_ts < ts:
+                    max_ts = ts
+
+                yield res, ts
+
+            next_page: Optional[str] = data.get("paging", {}).get("next", {}).get("after", None)
+            if next_page is None:
+                return
+
+            after = int(next_page)
+
+            if records == 10000:
+                total_records+=records
+                after = 0
+                start_date = max_ts
+                records = 0
+
 
     def get_engagements(self):
         path = "/engagements/v1/engagements/paged"
@@ -585,6 +663,24 @@ class Hubspot:
             LOGGER.debug(response.url)
             response.raise_for_status()
             return response.json()
+
+
+    @limits(calls=100, period=10)
+    def call_api_post(self, url, params=None):
+        params = params or {}
+        url = f"{self.BASE_URL}{url}"
+        headers = {"Authorization": f"Bearer {self.access_token}"}
+        with self.SESSION.post(
+            url, headers=headers, json=params, timeout=self.timeout
+        ) as response:
+            if response.status_code == 401:
+                # attempt to refresh access token
+                self.refresh_access_token()
+                raise RetryAfterReauth
+            LOGGER.debug(response.url)
+            response.raise_for_status()
+            return response
+
 
     def test_endpoint(self, url, params={}):
         url = f"{self.BASE_URL}{url}"
