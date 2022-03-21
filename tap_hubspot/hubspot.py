@@ -174,6 +174,16 @@ MANDATORY_PROPERTIES = {
     ],
 }
 
+def chunker(iter: Iterable[Dict], size: int) -> Iterable[List[Dict]]:
+    i = 0
+    chunk = []
+    for o in iter:
+        chunk.append(o)
+        i += 1
+        if i != 0 and i % size == 0:
+            yield chunk
+            chunk = []
+    yield chunk
 
 class Hubspot:
     BASE_URL = "https://api.hubapi.com"
@@ -238,55 +248,44 @@ class Hubspot:
             MANDATORY_PROPERTIES[f"{obj_type}"],
         )
 
-        while True:
-            deals = {}
-            i = 0
+        for chunk in chunker(gen, 10):
+            ids: List[str] = [contact["id"] for contact in chunk]
 
-            for rec, ts in gen:
-                rec_id = rec["id"]
-                # ensure that there is a default entry for all contacts/companies
-                rec["associations"] = {
-                    # fit the legacy format to be backwards compatible:
-                    # "results": [{ "id": "<id>" }]
-                    "deals": {"results": []},
-                    "companies": {"results": []},
+            deals_associations = self.get_associations(obj_type, "deals", ids)
+            companies_associations = self.get_associations(obj_type, "companies", ids)
+            for i, deal_id in enumerate(ids):
+                contact = chunk[i]
+                deals = deals_associations.get(deal_id, [])
+                companies = companies_associations.get(deal_id, [])
+                contact["associations"] = {
+                    "deals": {"results": deals},
+                    "companies": {"results": companies},
                 }
-
-                deals[rec_id] = rec
-                i += 1
-                if i >= 10:
-                    break
-
-            ids = list(deals.keys())
-
-            for id, ass in self.get_associations(obj_type, "deals", ids):
-                deals[id]["associations"]["deals"] = {"results": ass}
-
-            for id, ass in self.get_associations(obj_type, "companies", ids):
-                deals[id]["associations"]["companies"] = {"results": ass}
-
-            for deal in deals.values():
-                yield deal, parser.isoparse(
-                    self.get_value(deal, ["properties", filter_key])
+                yield contact, parser.isoparse(
+                    self.get_value(contact, ["properties", filter_key])
                 )
+
 
     def get_associations(
         self,
         from_obj: str,
         to_obj: str,
         ids: List[str],
-    ) -> Iterable[Tuple[str, List[Dict[str, str]]]]:
+    ) -> Dict[str, List[Dict[str, str]]]:
         body = {"inputs": [{"id": id} for id in ids]}
-        path = f"/crm/v3/associations/{from_obj.title()}/{to_obj.title()}/batch/read"
+        path = f"/crm/v3/associations/{from_obj}/{to_obj}/batch/read"
 
         resp = self.do("POST", path, json=body)
-
         data = resp.json()
 
         associations = data.get("results", [])
+        result: Dict[str, List[Dict[str, str]]] = {}
+
         for ass in associations:
-            from_id = ass["from"]["id"]
-            yield from_id, [{"id": o["id"]} for o in ass["to"]]
+            ass_id = ass["from"]["id"]
+            result[ass_id] = [{"id": o["id"]} for o in ass["to"]]
+
+        return result
 
     def search(
         self,
@@ -296,7 +295,7 @@ class Hubspot:
         end_date: datetime,
         properties: List[str],
         limit=100,
-    ) -> Iterable[Tuple[Dict, datetime]]:
+    ) -> Iterable[Dict]:
         path = f"/crm/v3/objects/{object_type}/search"
         max_ts: Optional[datetime] = None
         after: int = 0
@@ -329,12 +328,10 @@ class Hubspot:
                 return
 
             for record in records:
-                ts_str = self.get_value(record, ["properties", filter_key])
-                ts = parser.isoparse(ts_str)
-                if max_ts is None or max_ts < ts:
-                    max_ts = ts
-
-                yield record, ts
+                yield record
+            last_record = records[-1]
+            ts_str = self.get_value(last_record, ["properties", filter_key])
+            max_ts = parser.isoparse(ts_str)
 
             records_count += len(records)
 
@@ -342,7 +339,7 @@ class Hubspot:
             # (not pages). We use the last record in the last page to filter on.
             if records_count == 10000:
                 records_total += records_count
-                assert max_ts is not None
+
                 # reset all pagination values
                 after = 0
                 start_date = max_ts
