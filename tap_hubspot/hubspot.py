@@ -252,7 +252,6 @@ class Hubspot:
                 raise
 
             data = resp.json()
-            LOGGER.info(f"total data to be synced: {data['total']}")
             records = data.get("results", [])
 
             if not records:
@@ -323,7 +322,6 @@ class Hubspot:
             "limit": limit,
             "after": after,
         }
-        LOGGER.info(f"filter option: {q['filterGroups']}. after:{q['after']}")
         return q
 
     def attach_engagement_associations(
