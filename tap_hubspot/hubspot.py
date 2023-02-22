@@ -131,6 +131,8 @@ class Hubspot:
             yield from self.get_engagement_emails(
                 start_date=start_date, end_date=end_date
             )
+        elif self.tap_stream_id == "campaigns":
+            yield from self.get_campaigns()
         else:
             raise NotImplementedError(f"unknown stream_id: {self.tap_stream_id}")
 
@@ -594,6 +596,19 @@ class Hubspot:
             data_field=data_field,
             offset_key=offset_key,
         )
+    
+    def get_campaign_list(self) -> Iterable:
+        yield from self.get_records(
+            "/email/public/v1/campaigns",
+            data_field="campaigns",
+            offset_key="offset",
+        )
+    
+    def get_campaigns(self):
+        for campaign, _ in self.get_campaign_list():
+            campaign_id = campaign["id"]
+            resp = self.do("GET", f"/email/public/v1/campaigns/{campaign_id}")
+            yield resp.json(), None
 
     def get_forms(self):
         path = "/forms/v2/forms"
@@ -762,7 +777,7 @@ class Hubspot:
                 "company_properties",
                 "archived_contacts",
                 "archived_companies",
-                "archived_deals",
+                "archived_deals"
             ]:
 
                 replication_value = self.get_value(record, replication_path)
