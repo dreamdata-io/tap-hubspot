@@ -35,6 +35,7 @@ STREAMS = {
     "notes": {"bookmark_key": "lastUpdated"},
     "tasks": {"bookmark_key": "lastUpdated"},
     "emails": {"bookmark_key": "lastUpdated"},
+    "campaigns": {},
 }
 REQUIRED_CONFIG_KEYS = [
     "start_date",
