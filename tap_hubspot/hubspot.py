@@ -596,14 +596,14 @@ class Hubspot:
             data_field=data_field,
             offset_key=offset_key,
         )
-    
+
     def get_campaign_list(self) -> Iterable:
         yield from self.get_records(
             "/email/public/v1/campaigns",
             data_field="campaigns",
             offset_key="offset",
         )
-    
+
     def get_campaigns(self):
         for campaign, _ in self.get_campaign_list():
             campaign_id = campaign["id"]
@@ -777,7 +777,7 @@ class Hubspot:
                 "company_properties",
                 "archived_contacts",
                 "archived_companies",
-                "archived_deals"
+                "archived_deals",
             ]:
 
                 replication_value = self.get_value(record, replication_path)
