@@ -610,9 +610,10 @@ class Hubspot:
             try:
                 resp = self.do("GET", f"/email/public/v1/campaigns/{campaign_id}")
             except requests.HTTPError as e:
-                # We assume that campaign id doesn't exist
-                LOGGER.warn("No data for that campaign id, skipping")
-                continue
+                if e.response.status_code == 404:
+                    LOGGER.warn(f"campaign {campaign_id} doesn't exist anymore, skipping")
+                    continue
+                raise
             yield resp.json(), None
 
     def get_forms(self):
