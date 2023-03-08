@@ -607,7 +607,13 @@ class Hubspot:
     def get_campaigns(self):
         for campaign, _ in self.get_campaign_list():
             campaign_id = campaign["id"]
-            resp = self.do("GET", f"/email/public/v1/campaigns/{campaign_id}")
+            try:
+                resp = self.do("GET", f"/email/public/v1/campaigns/{campaign_id}")
+            except requests.HTTPError as e:
+                if e.response.status_code == 404:
+                    LOGGER.warn(f"campaign {campaign_id} doesn't exist anymore, skipping")
+                    continue
+                raise
             yield resp.json(), None
 
     def get_forms(self):
