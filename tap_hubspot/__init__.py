@@ -29,6 +29,8 @@ STREAMS = {
     "company_properties": {"bookmark_key": "updatedAt"},
     "note_properties": {"bookmark_key": "updatedAt"},
     "task_properties": {"bookmark_key": "updatedAt"},
+    "call_properties": {"bookmark_key": "updatedAt"},
+    "meeting_properties": {"bookmark_key": "updatedAt"},
     "archived_contacts": {"bookmark_key": "archivedAt"},
     "archived_companies": {"bookmark_key": "archivedAt"},
     "archived_deals": {"bookmark_key": "archivedAt"},

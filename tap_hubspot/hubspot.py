@@ -117,6 +117,10 @@ class Hubspot:
             yield from self.get_properties("tasks")
         elif self.tap_stream_id == "note_properties":
             yield from self.get_properties("notes")
+        elif self.tap_stream_id == "call_properties":
+            yield from self.get_properties("calls")
+        elif self.tap_stream_id == "meeting_properties":
+            yield from self.get_properties("meetings")
         elif self.tap_stream_id == "archived_contacts":
             yield from self.get_archived_contacts()
         elif self.tap_stream_id == "archived_companies":
@@ -787,6 +791,8 @@ class Hubspot:
                 "company_properties",
                 "task_properties",
                 "note_properties",
+                "call_properties",
+                "meeting_properties",
                 "archived_contacts",
                 "archived_companies",
                 "archived_deals",
