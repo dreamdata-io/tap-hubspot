@@ -594,7 +594,12 @@ class Hubspot:
         path = "/email/public/v1/events"
         data_field = "events"
         replication_path = ["created"]
-        params = {"startTimestamp": start_date, "endTimestamp": end_date, "limit": 1000}
+        params = {
+            "startTimestamp": start_date,
+            "endTimestamp": end_date,
+            "limit": 1000,
+            "eventType": "CLICK",
+        }
         offset_key = "offset"
 
         yield from self.get_records(
