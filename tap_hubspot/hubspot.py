@@ -878,6 +878,7 @@ class Hubspot:
             requests.exceptions.RequestException,
             ratelimit.RateLimitException,
             RetryAfterReauth,
+            requests.exceptions.ReadTimeout,
         ),
         giveup=giveup_http_codes,
         jitter=backoff.full_jitter,
