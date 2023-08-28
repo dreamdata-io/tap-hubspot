@@ -71,7 +71,7 @@ class Hubspot:
         tap_stream_id: str,
         event_state: DefaultDict[Set, str],
         limit=250,
-        timeout=10,  # seconds before first byte should have been received
+        timeout=3 * 60,  # seconds before first byte should have been received
     ):
         self.SESSION = requests.Session()
         self.limit = limit
@@ -337,7 +337,6 @@ class Hubspot:
     def attach_engagement_associations(
         self, obj_type: str, search_result: Iterable[Dict], replication_path: List[str]
     ) -> Iterable[Tuple[Dict, datetime]]:
-
         for chunk in chunker(search_result, 100):
             ids: List[str] = [engagement["id"] for engagement in chunk]
 
@@ -624,7 +623,9 @@ class Hubspot:
                 resp = self.do("GET", f"/email/public/v1/campaigns/{campaign_id}")
             except requests.HTTPError as e:
                 if e.response.status_code == 404:
-                    LOGGER.warn(f"campaign {campaign_id} doesn't exist anymore, skipping")
+                    LOGGER.warn(
+                        f"campaign {campaign_id} doesn't exist anymore, skipping"
+                    )
                     continue
                 raise
             yield resp.json(), None
@@ -701,7 +702,6 @@ class Hubspot:
         if not self.is_enterprise():
             return None, None
         for contact_id in self.event_state["contacts_events_ids"]:
-
             params = {
                 "limit": self.limit,
                 "objectType": "contact",
@@ -739,7 +739,6 @@ class Hubspot:
         return None
 
     def store_ids_submissions(self, record: Dict):
-
         # get form guids from contacts to sync submissions data
         hs_calculated_form_submissions = self.get_value(
             record, ["properties", "hs_calculated_form_submissions"]
@@ -802,7 +801,6 @@ class Hubspot:
                 "archived_companies",
                 "archived_deals",
             ]:
-
                 replication_value = self.get_value(record, replication_path)
                 if replication_value:
                     replication_value = parser.isoparse(replication_value)
