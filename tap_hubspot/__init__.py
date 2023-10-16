@@ -10,20 +10,21 @@ from tap_hubspot.hubspot import InvalidCredentials, MissingScope
 from collections import defaultdict
 from typing import DefaultDict, Set
 
-STREAMS = {
+FREE_STREAMS = {
     "companies": {"bookmark_key": "updatedAt"},
+    "contacts": {"bookmark_key": "updatedAt"},
+    "deals": {"bookmark_key": "updatedAt"},
+}
+
+ADVANCED_STREAMS = {
     "owners": {"bookmark_key": "updatedAt"},
     "forms": {"bookmark_key": "updatedAt"},
-    "contacts": {
-        "bookmark_key": "updatedAt",
-    },
     "contacts_events": {"bookmark_key": "lastSynced"},
     "contact_lists": {"bookmark_key": "lastSizeChangeAt"},
     "contacts_in_contact_lists": {},
     "deal_pipelines": {"bookmark_key": "updatedAt"},
     "submissions": {"bookmark_key": "submittedAt"},
     "email_events": {"bookmark_key": "created"},
-    "deals": {"bookmark_key": "updatedAt"},
     "deal_properties": {"bookmark_key": "updatedAt"},
     "contact_properties": {"bookmark_key": "updatedAt"},
     "company_properties": {"bookmark_key": "updatedAt"},
@@ -41,13 +42,16 @@ STREAMS = {
     "emails": {"bookmark_key": "lastUpdated"},
     "campaigns": {},
 }
+
 REQUIRED_CONFIG_KEYS = [
     "start_date",
     "client_id",
     "client_secret",
     "refresh_token",
     "redirect_uri",
+    "advanced_features_enabled",
 ]
+
 LOGGER = singer.get_logger()
 
 
@@ -64,7 +68,12 @@ def sync(config, state=None):
             f"{temp_dirname}/hs_calculated_form_submissions_guids"
         )
 
-        for tap_stream_id, stream_config in STREAMS.items():
+        streams = FREE_STREAMS.copy()
+        advanced_features_enabled = config.pop("advanced_features_enabled", False)
+        if advanced_features_enabled:
+            streams.update(ADVANCED_STREAMS)
+
+        for tap_stream_id, stream_config in streams.items():
             try:
                 LOGGER.info(f"syncing {tap_stream_id}")
                 stream = Stream(
