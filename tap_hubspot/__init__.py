@@ -49,7 +49,6 @@ REQUIRED_CONFIG_KEYS = [
     "client_secret",
     "refresh_token",
     "redirect_uri",
-    "advanced_features_enabled",
 ]
 
 LOGGER = singer.get_logger()
@@ -71,6 +70,7 @@ def sync(config, state=None):
         streams = FREE_STREAMS.copy()
         advanced_features_enabled = config.pop("advanced_features_enabled", False)
         if advanced_features_enabled:
+            LOGGER.info("advanced features enabled for client %(client_id)", {"client_id": config["client_id"]})
             streams.update(ADVANCED_STREAMS)
 
         for tap_stream_id, stream_config in streams.items():
@@ -96,6 +96,8 @@ def sync(config, state=None):
 @utils.handle_top_exception(LOGGER)
 def main():
 
+    import os
+    print(os.getcwd())
     args = utils.parse_args(REQUIRED_CONFIG_KEYS)
     sync(args.config, args.state)
 
