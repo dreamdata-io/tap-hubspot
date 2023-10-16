@@ -104,3 +104,4 @@ Pipfile
 Pipfile.lock
 stream.ndjson
 settings.json
+.idea
