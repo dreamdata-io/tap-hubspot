@@ -70,7 +70,7 @@ def sync(config, state=None):
         streams = FREE_STREAMS.copy()
         advanced_features_enabled = config.pop("advanced_features_enabled", False)
         if advanced_features_enabled:
-            LOGGER.info("advanced features enabled for client %(client_id)", {"client_id": config["client_id"]})
+            LOGGER.info("advanced features enabled for account")
             streams.update(ADVANCED_STREAMS)
 
         for tap_stream_id, stream_config in streams.items():
