@@ -96,8 +96,6 @@ def sync(config, state=None):
 @utils.handle_top_exception(LOGGER)
 def main():
 
-    import os
-    print(os.getcwd())
     args = utils.parse_args(REQUIRED_CONFIG_KEYS)
     sync(args.config, args.state)
 
