@@ -12,7 +12,7 @@ setup(
     py_modules=["tap_hubspot"],
     install_requires=[
         "singer-python>=5.1.1, <5.9",
-        "requests==2.22.0",
+        "requests==2.31.0",
         "backoff>=1.3.2, <2",
         "ratelimit==2.2.1",
     ],
