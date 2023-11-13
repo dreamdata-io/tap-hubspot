@@ -14,6 +14,9 @@ FREE_STREAMS = {
     "companies": {"bookmark_key": "updatedAt"},
     "contacts": {"bookmark_key": "updatedAt"},
     "deals": {"bookmark_key": "updatedAt"},
+    "deal_properties": {"bookmark_key": "updatedAt"},
+    "contact_properties": {"bookmark_key": "updatedAt"},
+    "company_properties": {"bookmark_key": "updatedAt"},
 }
 
 ADVANCED_STREAMS = {
@@ -25,9 +28,6 @@ ADVANCED_STREAMS = {
     "deal_pipelines": {"bookmark_key": "updatedAt"},
     "submissions": {"bookmark_key": "submittedAt"},
     "email_events": {"bookmark_key": "created"},
-    "deal_properties": {"bookmark_key": "updatedAt"},
-    "contact_properties": {"bookmark_key": "updatedAt"},
-    "company_properties": {"bookmark_key": "updatedAt"},
     "note_properties": {"bookmark_key": "updatedAt"},
     "task_properties": {"bookmark_key": "updatedAt"},
     "call_properties": {"bookmark_key": "updatedAt"},
