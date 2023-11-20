@@ -14,10 +14,16 @@ FREE_STREAMS = {
     "companies": {"bookmark_key": "updatedAt"},
     "contacts": {"bookmark_key": "updatedAt"},
     "deals": {"bookmark_key": "updatedAt"},
+    "owners": {"bookmark_key": "updatedAt"},
+    "deal_properties": {"bookmark_key": "updatedAt"},
+    "contact_properties": {"bookmark_key": "updatedAt"},
+    "company_properties": {"bookmark_key": "updatedAt"},
+    "archived_contacts": {"bookmark_key": "archivedAt"},
+    "archived_companies": {"bookmark_key": "archivedAt"},
+    "archived_deals": {"bookmark_key": "archivedAt"},
 }
 
 ADVANCED_STREAMS = {
-    "owners": {"bookmark_key": "updatedAt"},
     "forms": {"bookmark_key": "updatedAt"},
     "contacts_events": {"bookmark_key": "lastSynced"},
     "contact_lists": {"bookmark_key": "lastSizeChangeAt"},
@@ -25,16 +31,10 @@ ADVANCED_STREAMS = {
     "deal_pipelines": {"bookmark_key": "updatedAt"},
     "submissions": {"bookmark_key": "submittedAt"},
     "email_events": {"bookmark_key": "created"},
-    "deal_properties": {"bookmark_key": "updatedAt"},
-    "contact_properties": {"bookmark_key": "updatedAt"},
-    "company_properties": {"bookmark_key": "updatedAt"},
     "note_properties": {"bookmark_key": "updatedAt"},
     "task_properties": {"bookmark_key": "updatedAt"},
     "call_properties": {"bookmark_key": "updatedAt"},
     "meeting_properties": {"bookmark_key": "updatedAt"},
-    "archived_contacts": {"bookmark_key": "archivedAt"},
-    "archived_companies": {"bookmark_key": "archivedAt"},
-    "archived_deals": {"bookmark_key": "archivedAt"},
     "calls": {"bookmark_key": "lastUpdated"},
     "meetings": {"bookmark_key": "lastUpdated"},
     "notes": {"bookmark_key": "lastUpdated"},
@@ -95,7 +95,6 @@ def sync(config, state=None):
 
 @utils.handle_top_exception(LOGGER)
 def main():
-
     args = utils.parse_args(REQUIRED_CONFIG_KEYS)
     sync(args.config, args.state)
 
