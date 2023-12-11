@@ -925,6 +925,12 @@ class Hubspot:
 
             if response.status_code == 403:
                 err_msg: Dict = response.json()
+
+                # if there is no category, the error message is a legacy error message, and might have another
+                # format. https://legacydocs.hubspot.com/docs/faq/api-error-responses
+                if err_msg.get("category") is None:
+                    if "You do not have permissions to view object type" in err_msg.get("message"):
+                        raise MissingScope(err_msg)
                 if err_msg.get("category") == "MISSING_SCOPES":
                     raise MissingScope(err_msg)
             LOGGER.debug(response.url)
