@@ -41,7 +41,7 @@ ADVANCED_STREAMS = {
     "tasks": {"bookmark_key": "lastUpdated"},
     "emails": {"bookmark_key": "lastUpdated"},
     "campaigns": {},
-    "line_items": {"bookmark_key": "updatedAt"},
+    "line_items": {}
 }
 
 REQUIRED_CONFIG_KEYS = [
