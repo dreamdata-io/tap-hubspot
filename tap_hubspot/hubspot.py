@@ -638,13 +638,7 @@ class Hubspot:
         yield from self.get_records(path, replication_path)
 
     def get_line_items(self):
-        try:
-            resp = self.do("GET", f"/crm-objects/v1/objects/line_items/paged")
-        except requests.HTTPError as e:
-            if e.response.status_code == 400:
-                LOGGER.warn(f"line-items e-commerce scope is not fullfiled, skipped")
-                return
-            raise
+        resp = self.do("GET", f"/crm/v3/objects/line_items")
         yield resp.json(), None
 
     def get_guids_from_endpoint(self) -> set:
