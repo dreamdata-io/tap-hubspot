@@ -141,6 +141,8 @@ class Hubspot:
             )
         elif self.tap_stream_id == "campaigns":
             yield from self.get_campaigns()
+        elif self.tap_stream_id == "line_items":
+            yield from self.get_line_items()
         else:
             raise NotImplementedError(f"unknown stream_id: {self.tap_stream_id}")
 
@@ -635,6 +637,10 @@ class Hubspot:
         replication_path = ["updatedAt"]
         yield from self.get_records(path, replication_path)
 
+    def get_line_items(self):
+        resp = self.do("GET", f"/crm/v3/objects/line_items")
+        yield resp.json(), None
+
     def get_guids_from_endpoint(self) -> set:
         forms = set()
         forms_from_endpoint = self.get_forms()
@@ -929,7 +935,10 @@ class Hubspot:
                 # if there is no category, the error message is a legacy error message, and might have another
                 # format. https://legacydocs.hubspot.com/docs/faq/api-error-responses
                 if err_msg.get("category") is None:
-                    if "You do not have permissions to view object type" in err_msg.get("message"):
+                    if (
+                        "You do not have permissions to view object type"
+                        in err_msg.get("message")
+                    ):
                         raise MissingScope(err_msg)
                 if err_msg.get("category") == "MISSING_SCOPES":
                     raise MissingScope(err_msg)
