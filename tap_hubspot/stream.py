@@ -32,10 +32,6 @@ class Stream:
                     end_date=end_date,
                 )
                 for record, replication_value in data:
-                    if replication_value and (
-                        start_date >= replication_value or end_date < replication_value
-                    ):
-                        continue
 
                     singer.write_record(self.tap_stream_id, record)
                     counter.increment(1)
