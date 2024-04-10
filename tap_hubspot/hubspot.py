@@ -121,6 +121,8 @@ class Hubspot:
             yield from self.get_properties("calls")
         elif self.tap_stream_id == "meeting_properties":
             yield from self.get_properties("meetings")
+        elif self.tap_stream_id == "email_properties":
+            yield from self.get_properties("emails")
         elif self.tap_stream_id == "archived_contacts":
             yield from self.get_archived_contacts()
         elif self.tap_stream_id == "archived_companies":
@@ -800,6 +802,7 @@ class Hubspot:
                 "archived_contacts",
                 "archived_companies",
                 "archived_deals",
+                "email_properties",
             ]:
                 replication_value = self.get_value(record, replication_path)
                 if replication_value:
@@ -929,7 +932,10 @@ class Hubspot:
                 # if there is no category, the error message is a legacy error message, and might have another
                 # format. https://legacydocs.hubspot.com/docs/faq/api-error-responses
                 if err_msg.get("category") is None:
-                    if "You do not have permissions to view object type" in err_msg.get("message"):
+                    if (
+                        "You do not have permissions to view object type"
+                        in err_msg.get("message")
+                    ):
                         raise MissingScope(err_msg)
                 if err_msg.get("category") == "MISSING_SCOPES":
                     raise MissingScope(err_msg)

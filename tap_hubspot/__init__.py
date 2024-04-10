@@ -35,6 +35,7 @@ ADVANCED_STREAMS = {
     "task_properties": {"bookmark_key": "updatedAt"},
     "call_properties": {"bookmark_key": "updatedAt"},
     "meeting_properties": {"bookmark_key": "updatedAt"},
+    "email_properties": {"bookmark_key": "updatedAt"},
     "calls": {"bookmark_key": "lastUpdated"},
     "meetings": {"bookmark_key": "lastUpdated"},
     "notes": {"bookmark_key": "lastUpdated"},
