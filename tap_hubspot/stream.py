@@ -14,16 +14,10 @@ class Stream:
         self.bookmark_key = stream_config.get("bookmark_key")
         self.config = config
 
-    def do_sync(self, state: Dict, event_state: DefaultDict[Set, str]):
+    def do_sync(self, state: Dict, event_state: DefaultDict[Set, str], hubspot: Hubspot):
 
         prev_bookmark = None
         start_date, end_date = self.__get_start_end(state)
-        hubspot = Hubspot(
-            config=self.config,
-            event_state=event_state,
-            tap_stream_id=self.tap_stream_id,
-        )
-
         with singer.metrics.record_counter(self.tap_stream_id) as counter:
 
             try:
