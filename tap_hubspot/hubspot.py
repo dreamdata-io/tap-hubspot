@@ -70,13 +70,15 @@ class Hubspot:
         config: Dict,
         tap_stream_id: str,
         event_state: DefaultDict[Set, str],
+        access_token: str,
+        access_token_ttl: int,
         limit=250,
-        timeout=3 * 60,  # seconds before first byte should have been received
+        timeout=3 * 60  # seconds before first byte should have been received
     ):
         self.SESSION = requests.Session()
         self.limit = limit
-        self.access_token = None
-        self.access_token_ttl = None
+        self.access_token = access_token
+        self.access_token_ttl = access_token_ttl
         self.config = config
         self.tap_stream_id = tap_stream_id
         self.event_state = event_state
@@ -981,3 +983,8 @@ class Hubspot:
             seconds=expires_in_seconds - 60 * 5
         )
         self.access_token = data["access_token"]
+
+    # make a def to return the access_token_ttl
+    def get_access_token_and_ttl(self):
+        return self.access_token, self.access_token_ttl
+
