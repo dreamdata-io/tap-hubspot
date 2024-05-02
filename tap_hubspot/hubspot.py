@@ -984,7 +984,6 @@ class Hubspot:
         )
         self.access_token = data["access_token"]
 
-    # make a def to return the access_token_ttl
     def get_access_token_and_ttl(self):
         return self.access_token, self.access_token_ttl
 
