@@ -14,7 +14,7 @@ class Stream:
         self.bookmark_key = stream_config.get("bookmark_key")
         self.config = config
 
-    def do_sync(self, state: Dict, event_state: DefaultDict[Set, str], hubspot: Hubspot):
+    def do_sync(self, state: Dict, hubspot: Hubspot):
 
         prev_bookmark = None
         start_date, end_date = self.__get_start_end(state)
@@ -24,6 +24,7 @@ class Stream:
                 data = hubspot.streams(
                     start_date=start_date,
                     end_date=end_date,
+                    tap_stream_id=self.tap_stream_id,
                 )
                 for record, replication_value in data:
 

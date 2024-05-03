@@ -41,7 +41,7 @@ ADVANCED_STREAMS = {
     "notes": {"bookmark_key": "lastUpdated"},
     "tasks": {"bookmark_key": "lastUpdated"},
     "emails": {"bookmark_key": "lastUpdated"},
-    "campaigns": {},
+    "campaigns": {}
 }
 
 REQUIRED_CONFIG_KEYS = [
@@ -73,8 +73,10 @@ def sync(config, state=None):
         if advanced_features_enabled:
             LOGGER.info("advanced features enabled for account")
             streams.update(ADVANCED_STREAMS)
-        access_token_ttl = None
-        access_token = None
+        hubspot = Hubspot(
+                    config = config, 
+                    event_state = event_state
+                )
         for tap_stream_id, stream_config in streams.items():
             try:
                 LOGGER.info(f"syncing {tap_stream_id}")
@@ -83,17 +85,8 @@ def sync(config, state=None):
                     tap_stream_id=tap_stream_id,
                     stream_config=stream_config,
                 )
-                hubspot = Hubspot(
-                    config = config, 
-                    event_state = event_state, 
-                    tap_stream_id = tap_stream_id, 
-                    access_token = access_token, 
-                    access_token_ttl = access_token_ttl
-                )
 
-                state, event_state = stream.do_sync(state, event_state, hubspot)
-
-                access_token, access_token_ttl = hubspot.get_access_token_and_ttl()  # we are keeping the access token and access_token ttl for the next stream, otherwise refresh_access_token will be called again
+                state, event_state = stream.do_sync(state, hubspot)
             except InvalidCredentials:
                 LOGGER.exception(f"Invalid credentials")
                 sys.exit(5)
