@@ -88,6 +88,10 @@ class Hubspot:
         elif self.tap_stream_id == "companies":
             yield from self.get_companies(start_date, end_date)
         elif self.tap_stream_id == "contacts":
+            # tracking data sync is dependent on contacts sync
+            # hubspot does not return tracking data for contacts that are recently created
+            # we need to always rewind 2 days to fetch the contacts
+            start_date = start_date - timedelta(days=2)
             self.event_state["contacts_start_date"] = start_date
             self.event_state["contacts_end_date"] = end_date
             yield from self.get_contacts_v2(start_date, end_date)
@@ -708,8 +712,6 @@ class Hubspot:
                 "limit": self.limit,
                 "objectType": "contact",
                 "objectId": contact_id,
-                "occurredBefore": end_date,
-                "occurredAfter": start_date,
             }
             yield from self.get_records(
                 path, params=params, data_field=data_field, offset_key=offset_key
