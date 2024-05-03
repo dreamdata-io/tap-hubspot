@@ -85,7 +85,7 @@ class Hubspot:
             yield from self.get_owners()
         elif tap_stream_id == "companies":
             yield from self.get_companies(start_date, end_date)
-        elif self.tap_stream_id == "contacts":
+        elif tap_stream_id == "contacts":
             # tracking data sync is dependent on contacts sync
             # hubspot does not return tracking data for contacts that are recently created
             # we need to always rewind 2 days to fetch the contacts
