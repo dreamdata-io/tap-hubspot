@@ -143,6 +143,10 @@ class Hubspot:
             yield from self.get_engagement_emails(start_date=start_date, end_date=end_date)
         elif tap_stream_id == "campaigns":
             yield from self.get_campaigns()
+        elif tap_stream_id == "communications":
+            yield from self.get_communications()
+        elif tap_stream_id == "communication_properties":
+            yield from self.get_properties("communications")
         else:
             raise NotImplementedError(f"unknown stream_id: {tap_stream_id}")
 
@@ -377,6 +381,21 @@ class Hubspot:
         data_field = "results"
         replication_path = ["updatedAt"]
         params = {"limit": 100}
+        offset_key = "after"
+        yield from self.get_records(
+            path,
+            replication_path,
+            params=params,
+            data_field=data_field,
+            offset_key=offset_key,
+        )
+    
+    def get_communications(self):
+        path = "/crm/v3/objects/communications"
+        data_field = "results"
+        replication_path = ["updatedAt"]
+        properties = ["hs_communication_channel_type", "hs_communication_logged_from", "hs_communication_body","hs_timestamp"]
+        params = {"limit": 100, "properties": properties}
         offset_key = "after"
         yield from self.get_records(
             path,
