@@ -40,7 +40,6 @@ class Stream:
                     if prev_bookmark < new_bookmark:
                         state = self.__advance_bookmark(state, prev_bookmark)
                         prev_bookmark = new_bookmark
-
                 return self.output_state(
                     state=state,
                     prev_bookmark=prev_bookmark,
@@ -59,8 +58,7 @@ class Stream:
             prev_bookmark = event_state[f"{date_source}_end_date"]
 
         return (
-            self.__advance_bookmark(state, prev_bookmark),
-            event_state,
+            self.__advance_bookmark(state, prev_bookmark)
         )
 
     def __get_start_end(self, state: dict):

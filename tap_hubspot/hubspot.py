@@ -673,15 +673,15 @@ class Hubspot:
                 self.test_endpoint(path)
             except:
                 continue
-            for record in self.get_records(
+            for record, replication_key in self.get_records(
                 path,
                 params=params,
                 replication_path=[replication_key],
                 data_field=data_field,
                 offset_key=offset_key
             ):
-                record[0]["form_id"] = guid
-                yield record
+                record["form_id"] = guid
+                yield record, replication_key
 
     def is_enterprise(self):
         path = "/events/v3/events"
@@ -794,7 +794,6 @@ class Hubspot:
                 replication_value = self.get_value(record, replication_path)
                 if replication_value:
                     replication_value = parser.isoparse(replication_value)
-
             yield record, replication_value
 
     def get_value(self, obj: dict, path_to_replication_key=None, default=None):

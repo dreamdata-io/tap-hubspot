@@ -86,7 +86,7 @@ def sync(config, state=None):
                     stream_config=stream_config,
                 )
 
-                state, event_state = stream.do_sync(state, hubspot)
+                state = stream.do_sync(state, hubspot)
             except InvalidCredentials:
                 LOGGER.exception(f"Invalid credentials")
                 sys.exit(5)
