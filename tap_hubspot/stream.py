@@ -14,22 +14,17 @@ class Stream:
         self.bookmark_key = stream_config.get("bookmark_key")
         self.config = config
 
-    def do_sync(self, state: Dict, event_state: DefaultDict[Set, str]):
+    def do_sync(self, state: Dict, hubspot: Hubspot):
 
         prev_bookmark = None
         start_date, end_date = self.__get_start_end(state)
-        hubspot = Hubspot(
-            config=self.config,
-            event_state=event_state,
-            tap_stream_id=self.tap_stream_id,
-        )
-
         with singer.metrics.record_counter(self.tap_stream_id) as counter:
 
             try:
                 data = hubspot.streams(
                     start_date=start_date,
                     end_date=end_date,
+                    tap_stream_id=self.tap_stream_id,
                 )
                 for record, replication_value in data:
 
@@ -45,7 +40,6 @@ class Stream:
                     if prev_bookmark < new_bookmark:
                         state = self.__advance_bookmark(state, prev_bookmark)
                         prev_bookmark = new_bookmark
-
                 return self.output_state(
                     state=state,
                     prev_bookmark=prev_bookmark,
@@ -64,8 +58,7 @@ class Stream:
             prev_bookmark = event_state[f"{date_source}_end_date"]
 
         return (
-            self.__advance_bookmark(state, prev_bookmark),
-            event_state,
+            self.__advance_bookmark(state, prev_bookmark)
         )
 
     def __get_start_end(self, state: dict):

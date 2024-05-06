@@ -6,7 +6,7 @@ import singer
 import sys
 from singer import utils
 from tap_hubspot.stream import Stream
-from tap_hubspot.hubspot import InvalidCredentials, MissingScope
+from tap_hubspot.hubspot import Hubspot, InvalidCredentials, MissingScope
 from collections import defaultdict
 from typing import DefaultDict, Set
 
@@ -41,7 +41,7 @@ ADVANCED_STREAMS = {
     "notes": {"bookmark_key": "lastUpdated"},
     "tasks": {"bookmark_key": "lastUpdated"},
     "emails": {"bookmark_key": "lastUpdated"},
-    "campaigns": {},
+    "campaigns": {}
 }
 
 REQUIRED_CONFIG_KEYS = [
@@ -73,7 +73,10 @@ def sync(config, state=None):
         if advanced_features_enabled:
             LOGGER.info("advanced features enabled for account")
             streams.update(ADVANCED_STREAMS)
-
+        hubspot = Hubspot(
+                    config = config, 
+                    event_state = event_state
+                )
         for tap_stream_id, stream_config in streams.items():
             try:
                 LOGGER.info(f"syncing {tap_stream_id}")
@@ -82,7 +85,8 @@ def sync(config, state=None):
                     tap_stream_id=tap_stream_id,
                     stream_config=stream_config,
                 )
-                state, event_state = stream.do_sync(state, event_state)
+
+                state = stream.do_sync(state, hubspot)
             except InvalidCredentials:
                 LOGGER.exception(f"Invalid credentials")
                 sys.exit(5)

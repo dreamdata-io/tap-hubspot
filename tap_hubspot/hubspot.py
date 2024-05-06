@@ -68,26 +68,24 @@ class Hubspot:
     def __init__(
         self,
         config: Dict,
-        tap_stream_id: str,
         event_state: DefaultDict[Set, str],
         limit=250,
-        timeout=3 * 60,  # seconds before first byte should have been received
+        timeout=3 * 60  # seconds before first byte should have been received
     ):
         self.SESSION = requests.Session()
         self.limit = limit
         self.access_token = None
         self.access_token_ttl = None
         self.config = config
-        self.tap_stream_id = tap_stream_id
         self.event_state = event_state
         self.timeout = timeout
 
-    def streams(self, start_date: datetime, end_date: datetime):
-        if self.tap_stream_id == "owners":
+    def streams(self, start_date: datetime, end_date: datetime, tap_stream_id: str):
+        if tap_stream_id == "owners":
             yield from self.get_owners()
-        elif self.tap_stream_id == "companies":
+        elif tap_stream_id == "companies":
             yield from self.get_companies(start_date, end_date)
-        elif self.tap_stream_id == "contacts":
+        elif tap_stream_id == "contacts":
             # tracking data sync is dependent on contacts sync
             # hubspot does not return tracking data for contacts that are recently created
             # we need to always rewind 2 days to fetch the contacts
@@ -95,60 +93,58 @@ class Hubspot:
             self.event_state["contacts_start_date"] = start_date
             self.event_state["contacts_end_date"] = end_date
             yield from self.get_contacts_v2(start_date, end_date)
-        elif self.tap_stream_id == "contact_lists":
+        elif tap_stream_id == "contact_lists":
             yield from self.get_contact_lists()
-        elif self.tap_stream_id == "contacts_in_contact_lists":
+        elif tap_stream_id == "contacts_in_contact_lists":
             yield from self.get_contacts_in_contact_lists()
-        elif self.tap_stream_id == "deal_pipelines":
+        elif tap_stream_id == "deal_pipelines":
             yield from self.get_deal_pipelines()
-        elif self.tap_stream_id == "deals":
+        elif tap_stream_id == "deals":
             yield from self.get_deals(start_date, end_date)
-        elif self.tap_stream_id == "email_events":
+        elif tap_stream_id == "email_events":
             yield from self.get_email_events(start_date=start_date, end_date=end_date)
-        elif self.tap_stream_id == "forms":
+        elif tap_stream_id == "forms":
             yield from self.get_forms()
-        elif self.tap_stream_id == "submissions":
+        elif tap_stream_id == "submissions":
             yield from self.get_submissions()
-        elif self.tap_stream_id == "contacts_events":
+        elif tap_stream_id == "contacts_events":
             yield from self.get_contacts_events()
-        elif self.tap_stream_id == "deal_properties":
+        elif tap_stream_id == "deal_properties":
             yield from self.get_properties("deals")
-        elif self.tap_stream_id == "contact_properties":
+        elif tap_stream_id == "contact_properties":
             yield from self.get_properties("contacts")
-        elif self.tap_stream_id == "company_properties":
+        elif tap_stream_id == "company_properties":
             yield from self.get_properties("companies")
-        elif self.tap_stream_id == "task_properties":
+        elif tap_stream_id == "task_properties":
             yield from self.get_properties("tasks")
-        elif self.tap_stream_id == "note_properties":
+        elif tap_stream_id == "note_properties":
             yield from self.get_properties("notes")
-        elif self.tap_stream_id == "call_properties":
+        elif tap_stream_id == "call_properties":
             yield from self.get_properties("calls")
-        elif self.tap_stream_id == "meeting_properties":
+        elif tap_stream_id == "meeting_properties":
             yield from self.get_properties("meetings")
-        elif self.tap_stream_id == "email_properties":
+        elif tap_stream_id == "email_properties":
             yield from self.get_properties("emails")
-        elif self.tap_stream_id == "archived_contacts":
+        elif tap_stream_id == "archived_contacts":
             yield from self.get_archived_contacts()
-        elif self.tap_stream_id == "archived_companies":
+        elif tap_stream_id == "archived_companies":
             yield from self.get_archived_companies()
-        elif self.tap_stream_id == "archived_deals":
+        elif tap_stream_id == "archived_deals":
             yield from self.get_archived_deals()
-        elif self.tap_stream_id == "calls":
+        elif tap_stream_id == "calls":
             yield from self.get_calls(start_date=start_date, end_date=end_date)
-        elif self.tap_stream_id == "notes":
+        elif tap_stream_id == "notes":
             yield from self.get_notes(start_date=start_date, end_date=end_date)
-        elif self.tap_stream_id == "meetings":
+        elif tap_stream_id == "meetings":
             yield from self.get_meetings(start_date=start_date, end_date=end_date)
-        elif self.tap_stream_id == "tasks":
+        elif tap_stream_id == "tasks":
             yield from self.get_tasks(start_date=start_date, end_date=end_date)
-        elif self.tap_stream_id == "emails":
-            yield from self.get_engagement_emails(
-                start_date=start_date, end_date=end_date
-            )
-        elif self.tap_stream_id == "campaigns":
+        elif tap_stream_id == "emails":
+            yield from self.get_engagement_emails(start_date=start_date, end_date=end_date)
+        elif tap_stream_id == "campaigns":
             yield from self.get_campaigns()
         else:
-            raise NotImplementedError(f"unknown stream_id: {self.tap_stream_id}")
+            raise NotImplementedError(f"unknown stream_id: {tap_stream_id}")
 
     def get_deals(
         self, start_date: datetime, end_date: datetime
@@ -475,7 +471,7 @@ class Hubspot:
             return []
 
         yield from self.get_records(
-            "/contacts/v1/lists",
+            path = "/contacts/v1/lists",
             replication_path=["metaData", "lastSizeChangeAt"],
             params={"count": 250},
             data_field="lists",
@@ -677,14 +673,15 @@ class Hubspot:
                 self.test_endpoint(path)
             except:
                 continue
-            yield from self.get_records(
+            for record, replication_key in self.get_records(
                 path,
                 params=params,
                 replication_path=[replication_key],
                 data_field=data_field,
-                offset_key=offset_key,
-                guid=guid,
-            )
+                offset_key=offset_key
+            ):
+                record["form_id"] = guid
+                yield record, replication_key
 
     def is_enterprise(self):
         path = "/events/v3/events"
@@ -783,40 +780,20 @@ class Hubspot:
         replication_path=None,
         params=None,
         data_field=None,
-        offset_key=None,
-        guid=None,
+        offset_key=None
     ):
         for record in self.paginate(
             path, params=params, data_field=data_field, offset_key=offset_key
         ):
-            if self.tap_stream_id in [
-                "owners",
-                "contacts",
-                "companies",
-                "deal_pipelines",
-                "deal_properties",
-                "contact_properties",
-                "company_properties",
-                "task_properties",
-                "note_properties",
-                "call_properties",
-                "meeting_properties",
-                "archived_contacts",
-                "archived_companies",
-                "archived_deals",
-                "email_properties",
-            ]:
-                replication_value = self.get_value(record, replication_path)
-                if replication_value:
-                    replication_value = parser.isoparse(replication_value)
 
-            else:
+            try:
                 replication_value = self.milliseconds_to_datetime(
                     self.get_value(record, replication_path)
                 )
-            if self.tap_stream_id == "submissions":
-                record["form_id"] = guid
-
+            except ValueError:
+                replication_value = self.get_value(record, replication_path)
+                if replication_value:
+                    replication_value = parser.isoparse(replication_value)
             yield record, replication_value
 
     def get_value(self, obj: dict, path_to_replication_key=None, default=None):
@@ -981,3 +958,5 @@ class Hubspot:
             seconds=expires_in_seconds - 60 * 5
         )
         self.access_token = data["access_token"]
+
+
