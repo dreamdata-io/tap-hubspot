@@ -143,6 +143,10 @@ class Hubspot:
             yield from self.get_engagement_emails(start_date=start_date, end_date=end_date)
         elif tap_stream_id == "campaigns":
             yield from self.get_campaigns()
+        elif tap_stream_id == "communications":
+            yield from self.get_communications(start_date=start_date, end_date=end_date)
+        elif tap_stream_id == "communication_properties":
+            yield from self.get_properties("communications")
         else:
             raise NotImplementedError(f"unknown stream_id: {tap_stream_id}")
 
@@ -384,6 +388,23 @@ class Hubspot:
             params=params,
             data_field=data_field,
             offset_key=offset_key,
+        )
+    
+    def get_communications(
+        self, start_date: datetime, end_date: datetime
+    ) -> Iterable[Tuple[Dict, datetime]]:
+        filter_key = "hs_lastmodifieddate"
+        obj_type = "communications"
+        properties = self.get_object_properties(obj_type)
+        primary_key = "hs_object_id"
+        gen = self.search(
+            obj_type, filter_key, start_date, end_date, properties, primary_key
+        )
+
+        return self.attach_engagement_associations(
+            obj_type=obj_type,
+            search_result=gen,
+            replication_path=["properties", filter_key],
         )
 
     def get_archived(self, object_type: str):
@@ -859,11 +880,12 @@ class Hubspot:
             ratelimit.RateLimitException,
             RetryAfterReauth,
             requests.exceptions.ReadTimeout,
+            requests.exceptions.HTTPError,
         ),
         giveup=giveup_http_codes,
         jitter=backoff.full_jitter,
         max_tries=10,
-        max_time=5 * 60,
+        max_time=10 * 60,
     )
     @limits(calls=100, period=10)
     def do(
