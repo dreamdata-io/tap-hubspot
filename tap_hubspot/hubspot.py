@@ -144,7 +144,7 @@ class Hubspot:
         elif tap_stream_id == "campaigns":
             yield from self.get_campaigns()
         elif tap_stream_id == "communications":
-            yield from self.get_communications()
+            yield from self.get_communications(start_date=start_date, end_date=end_date)
         elif tap_stream_id == "communication_properties":
             yield from self.get_properties("communications")
         else:
@@ -390,19 +390,21 @@ class Hubspot:
             offset_key=offset_key,
         )
     
-    def get_communications(self):
-        path = "/crm/v3/objects/communications"
-        data_field = "results"
-        replication_path = ["updatedAt"]
-        properties = ["hs_communication_channel_type", "hs_communication_logged_from", "hs_communication_body","hs_timestamp"]
-        params = {"limit": 100, "properties": properties}
-        offset_key = "after"
-        yield from self.get_records(
-            path,
-            replication_path,
-            params=params,
-            data_field=data_field,
-            offset_key=offset_key,
+    def get_communications(
+        self, start_date: datetime, end_date: datetime
+    ) -> Iterable[Tuple[Dict, datetime]]:
+        filter_key = "hs_lastmodifieddate"
+        obj_type = "communications"
+        properties = self.get_object_properties(obj_type)
+        primary_key = "hs_object_id"
+        gen = self.search(
+            obj_type, filter_key, start_date, end_date, properties, primary_key
+        )
+
+        return self.attach_engagement_associations(
+            obj_type=obj_type,
+            search_result=gen,
+            replication_path=["properties", filter_key],
         )
 
     def get_archived(self, object_type: str):
