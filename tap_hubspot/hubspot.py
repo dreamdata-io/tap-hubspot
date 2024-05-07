@@ -718,8 +718,6 @@ class Hubspot:
 
     def get_contacts_events(self):
         # contacts_events data is retrieved according to contact id
-        start_date: str = self.event_state["contacts_start_date"].strftime(DATE_FORMAT)
-        end_date: str = self.event_state["contacts_end_date"].strftime(DATE_FORMAT)
         data_field = "results"
         offset_key = "after"
         path = "/events/v3/events"
@@ -731,9 +729,18 @@ class Hubspot:
                 "objectType": "contact",
                 "objectId": contact_id,
             }
-            yield from self.get_records(
-                path, params=params, data_field=data_field, offset_key=offset_key
-            )
+            try:
+                for record, replication_value in self.get_records(
+                    path, params=params, data_field=data_field, offset_key=offset_key
+                ):
+                    yield record, replication_value
+            except requests.exceptions.HTTPError as err:
+                if err.response.status_code == 400:
+                    LOGGER.info(
+                        f"contact tracking events can not be retrieved for this contact id {contact_id},error: {err.response.text}"
+                    )
+                    continue
+                raise
 
     def check_contact_id(
         self,
