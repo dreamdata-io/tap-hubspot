@@ -29,7 +29,7 @@ def giveup_http_codes(e: Exception):
     if isinstance(e, requests.HTTPError):
         # raised by response.raise_for_status()
         status_code = e.response.status_code
-        if status_code in {404}:
+        if status_code in {404, 400}:
             return True
 
     if isinstance(e, (requests.Timeout, requests.ConnectionError)):
@@ -89,7 +89,6 @@ class Hubspot:
             # tracking data sync is dependent on contacts sync
             # hubspot does not return tracking data for contacts that are recently created
             # we need to always rewind 2 days to fetch the contacts
-            start_date = start_date - timedelta(days=2)
             self.event_state["contacts_start_date"] = start_date
             self.event_state["contacts_end_date"] = end_date
             yield from self.get_contacts_v2(start_date, end_date)
@@ -887,7 +886,6 @@ class Hubspot:
             ratelimit.RateLimitException,
             RetryAfterReauth,
             requests.exceptions.ReadTimeout,
-            requests.exceptions.HTTPError,
         ),
         giveup=giveup_http_codes,
         jitter=backoff.full_jitter,
