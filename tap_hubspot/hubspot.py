@@ -880,11 +880,12 @@ class Hubspot:
             ratelimit.RateLimitException,
             RetryAfterReauth,
             requests.exceptions.ReadTimeout,
+            requests.exceptions.HTTPError,
         ),
         giveup=giveup_http_codes,
         jitter=backoff.full_jitter,
         max_tries=10,
-        max_time=5 * 60,
+        max_time=10 * 60,
     )
     @limits(calls=100, period=10)
     def do(
