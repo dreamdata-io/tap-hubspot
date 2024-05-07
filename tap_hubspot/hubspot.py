@@ -147,6 +147,10 @@ class Hubspot:
             yield from self.get_communications(start_date=start_date, end_date=end_date)
         elif tap_stream_id == "communication_properties":
             yield from self.get_properties("communications")
+        elif tap_stream_id == "engagements__c":
+            yield from self.get_engagements__c(start_date=start_date, end_date=end_date)
+        elif tap_stream_id == "engagement_properties__c":
+            yield from self.get_properties_engagement__c()
         else:
             raise NotImplementedError(f"unknown stream_id: {tap_stream_id}")
 
@@ -703,6 +707,57 @@ class Hubspot:
             ):
                 record["form_id"] = guid
                 yield record, replication_key
+
+    def get_portal_id(self):
+        try:
+            resp = self.do("GET", f"/integrations/v1/me")
+            return resp.json()["portalId"]
+        except requests.HTTPError as e:
+            LOGGER.warn(
+                f"Failed to get portal ID skipping"
+            )
+            return
+        
+    def get_engagements__c(self, start_date: datetime, end_date: datetime) -> Iterable[Tuple[Dict, datetime]]:
+        filter_key = "hs_lastmodifieddate"
+        portalId = self.get_portal_id()
+        obj_type = f"p{portalId}_marketing_engagements"
+        primary_key = "hs_object_id"
+        try:
+            yield from self.get_records(f"/crm/v3/properties/{obj_type}")
+        except requests.HTTPError as e:
+            LOGGER.warn(
+                f"Marketing engegements don't exist for portal ID {portalId}, skipping"
+            )
+            return
+        
+        properties = self.get_object_properties(obj_type)
+        gen = self.search(obj_type, filter_key, start_date, end_date, properties, primary_key)
+
+        return self.attach_engagement_associations(
+            obj_type=obj_type,
+            search_result=gen,
+            replication_path=["properties", filter_key],
+        )
+    
+    def get_properties_engagement__c(self):
+        portalId = self.get_portal_id()
+        path = f"/crm/v3/properties/p{portalId}_marketing_engagements"
+        data_field = "results"
+        replication_path = ["updatedAt"]
+        offset_key = "after"
+        try:
+            yield from self.get_records(
+                path,
+                replication_path,
+                data_field=data_field,
+                offset_key=offset_key,
+            )
+        except requests.HTTPError as e:
+            LOGGER.warn(
+                f"Marketing engegements don't exist for portal ID {portalId}, skipping"
+            )
+            return
 
     def is_enterprise(self):
         path = "/events/v3/events"
