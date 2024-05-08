@@ -966,7 +966,7 @@ class Hubspot:
             return resp.json()["portalId"]
         except requests.HTTPError as e:
             LOGGER.warn(
-                f"Failed to get portal ID"
+                "Failed to get portal ID"
             )
             return
 
