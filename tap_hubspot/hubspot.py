@@ -146,6 +146,10 @@ class Hubspot:
             yield from self.get_communications(start_date=start_date, end_date=end_date)
         elif tap_stream_id == "communication_properties":
             yield from self.get_properties("communications")
+        elif tap_stream_id == "p8915701_marketing_engagements":
+            yield from self.get_marketing_engagements(start_date=start_date, end_date=end_date, obj_type="p8915701_marketing_engagements")
+        elif tap_stream_id == "p8915701_marketing_engagement_properties":
+            yield from self.get_properties(f"p8915701_marketing_engagements")
         else:
             raise NotImplementedError(f"unknown stream_id: {tap_stream_id}")
 
@@ -702,6 +706,18 @@ class Hubspot:
             ):
                 record["form_id"] = guid
                 yield record, replication_key
+        
+    def get_marketing_engagements(self, start_date: datetime, end_date: datetime, obj_type) -> Iterable[Tuple[Dict, datetime]]:
+        filter_key = "hs_lastmodifieddate"
+        primary_key = "hs_object_id"
+        properties = self.get_object_properties(obj_type)
+        gen = self.search(obj_type, filter_key, start_date, end_date, properties, primary_key)
+
+        return self.attach_engagement_associations(
+            obj_type=obj_type,
+            search_result=gen,
+            replication_path=["properties", filter_key],
+        )
 
     def is_enterprise(self):
         path = "/events/v3/events"
@@ -948,6 +964,16 @@ class Hubspot:
             LOGGER.debug(response.url)
             response.raise_for_status()
             return response
+
+    def get_portal_id(self):
+        try:
+            resp = self.do("GET", f"/integrations/v1/me")
+            return resp.json()["portalId"]
+        except requests.HTTPError as e:
+            LOGGER.warn(
+                "Failed to get portal ID"
+            )
+            return
 
     def test_endpoint(self, url, params={}):
         self.refresh_access_token()

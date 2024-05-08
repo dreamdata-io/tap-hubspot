@@ -21,7 +21,7 @@ FREE_STREAMS = {
     "archived_contacts": {"bookmark_key": "archivedAt"},
     "archived_companies": {"bookmark_key": "archivedAt"},
     "archived_deals": {"bookmark_key": "archivedAt"},
-    "deal_pipelines": {"bookmark_key": "updatedAt"},
+    "deal_pipelines": {"bookmark_key": "updatedAt"}
 }
 
 ADVANCED_STREAMS = {
@@ -46,6 +46,17 @@ ADVANCED_STREAMS = {
     "communication_properties": {"bookmark_key": "updatedAt"}
 }
 
+CUSTOM_STREAMS = [
+    {
+        # slug = "gopigment_com"
+        'portal_id': 8915701,
+        'streams': {
+            "p8915701_marketing_engagements": {"bookmark_key": "updatedAt"},
+            "p8915701_marketing_engagement_properties": {"bookmark_key": "updatedAt"}
+            }
+    }
+]
+
 REQUIRED_CONFIG_KEYS = [
     "start_date",
     "client_id",
@@ -69,16 +80,19 @@ def sync(config, state=None):
         event_state["hs_calculated_form_submissions_guids"] = shelve.open(
             f"{temp_dirname}/hs_calculated_form_submissions_guids"
         )
-
+        hubspot = Hubspot(
+                    config = config, 
+                    event_state = event_state
+                )
         streams = FREE_STREAMS.copy()
         advanced_features_enabled = config.pop("advanced_features_enabled", False)
         if advanced_features_enabled:
             LOGGER.info("advanced features enabled for account")
             streams.update(ADVANCED_STREAMS)
-        hubspot = Hubspot(
-                    config = config, 
-                    event_state = event_state
-                )
+        portal_id = hubspot.get_portal_id()
+        for stream in CUSTOM_STREAMS:
+            if portal_id == stream["portal_id"]:
+                streams.update(stream["streams"])
         for tap_stream_id, stream_config in streams.items():
             try:
                 LOGGER.info(f"syncing {tap_stream_id}")
