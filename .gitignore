@@ -103,5 +103,7 @@ catalog.json
 Pipfile
 Pipfile.lock
 stream.ndjson
+out.ndjson
 settings.json
 .idea
+temp_*
