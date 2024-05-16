@@ -1,4 +1,5 @@
 import requests
+import sys
 from ratelimit import limits
 import ratelimit
 import singer
@@ -969,10 +970,11 @@ class Hubspot:
         try:
             resp = self.do("GET", f"/integrations/v1/me")
             return resp.json()["portalId"]
+        except InvalidCredentials:
+            LOGGER.exception(f"Invalid credentials")
+            sys.exit(5)
         except requests.HTTPError as e:
-            LOGGER.warn(
-                "Failed to get portal ID"
-            )
+            LOGGER.warn("Failed to get portal ID")
             return
 
     def test_endpoint(self, url, params={}):
