@@ -71,7 +71,7 @@ class Hubspot:
         config: Dict,
         event_state: DefaultDict[Set, str],
         limit=250,
-        timeout=3 * 60  # seconds before first byte should have been received
+        timeout=3 * 60,  # seconds before first byte should have been received
     ):
         self.SESSION = requests.Session()
         self.limit = limit
@@ -140,7 +140,9 @@ class Hubspot:
         elif tap_stream_id == "tasks":
             yield from self.get_tasks(start_date=start_date, end_date=end_date)
         elif tap_stream_id == "emails":
-            yield from self.get_engagement_emails(start_date=start_date, end_date=end_date)
+            yield from self.get_engagement_emails(
+                start_date=start_date, end_date=end_date
+            )
         elif tap_stream_id == "campaigns":
             yield from self.get_campaigns()
         elif tap_stream_id == "communications":
@@ -148,7 +150,11 @@ class Hubspot:
         elif tap_stream_id == "communication_properties":
             yield from self.get_properties("communications")
         elif tap_stream_id == "p8915701_marketing_engagements":
-            yield from self.get_marketing_engagements(start_date=start_date, end_date=end_date, obj_type="p8915701_marketing_engagements")
+            yield from self.get_marketing_engagements(
+                start_date=start_date,
+                end_date=end_date,
+                obj_type="p8915701_marketing_engagements",
+            )
         elif tap_stream_id == "p8915701_marketing_engagement_properties":
             yield from self.get_properties(f"p8915701_marketing_engagements")
         else:
@@ -352,6 +358,7 @@ class Hubspot:
 
             companies_associations = self.get_associations(obj_type, "companies", ids)
             contacts_associations = self.get_associations(obj_type, "contacts", ids)
+            deals_associations = self.get_associations(obj_type, "deals", ids)
 
             for i, engagement_id in enumerate(ids):
                 engagement = chunk[i]
@@ -362,6 +369,7 @@ class Hubspot:
                 engagement["associations"] = {
                     "companies": {"results": companies},
                     "contacts": {"results": contacts},
+                    "deals": {"results": deals_associations.get(engagement_id, [])},
                 }
 
                 yield engagement, parser.isoparse(
@@ -393,7 +401,7 @@ class Hubspot:
             data_field=data_field,
             offset_key=offset_key,
         )
-    
+
     def get_communications(
         self, start_date: datetime, end_date: datetime
     ) -> Iterable[Tuple[Dict, datetime]]:
@@ -496,7 +504,7 @@ class Hubspot:
             return []
 
         yield from self.get_records(
-            path = "/contacts/v1/lists",
+            path="/contacts/v1/lists",
             replication_path=["metaData", "lastSizeChangeAt"],
             params={"count": 250},
             data_field="lists",
@@ -703,16 +711,20 @@ class Hubspot:
                 params=params,
                 replication_path=[replication_key],
                 data_field=data_field,
-                offset_key=offset_key
+                offset_key=offset_key,
             ):
                 record["form_id"] = guid
                 yield record, replication_key
-        
-    def get_marketing_engagements(self, start_date: datetime, end_date: datetime, obj_type) -> Iterable[Tuple[Dict, datetime]]:
+
+    def get_marketing_engagements(
+        self, start_date: datetime, end_date: datetime, obj_type
+    ) -> Iterable[Tuple[Dict, datetime]]:
         filter_key = "hs_lastmodifieddate"
         primary_key = "hs_object_id"
         properties = self.get_object_properties(obj_type)
-        gen = self.search(obj_type, filter_key, start_date, end_date, properties, primary_key)
+        gen = self.search(
+            obj_type, filter_key, start_date, end_date, properties, primary_key
+        )
 
         return self.attach_engagement_associations(
             obj_type=obj_type,
@@ -819,12 +831,7 @@ class Hubspot:
             self.event_state["contacts_events_ids"].sync()
 
     def get_records(
-        self,
-        path,
-        replication_path=None,
-        params=None,
-        data_field=None,
-        offset_key=None
+        self, path, replication_path=None, params=None, data_field=None, offset_key=None
     ):
         for record in self.paginate(
             path, params=params, data_field=data_field, offset_key=offset_key
@@ -1013,5 +1020,3 @@ class Hubspot:
             seconds=expires_in_seconds - 60 * 5
         )
         self.access_token = data["access_token"]
-
-
