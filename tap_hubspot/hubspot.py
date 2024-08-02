@@ -352,6 +352,7 @@ class Hubspot:
 
             companies_associations = self.get_associations(obj_type, "companies", ids)
             contacts_associations = self.get_associations(obj_type, "contacts", ids)
+            deals_associations = self.get_associations(obj_type, "deals", ids)
 
             for i, engagement_id in enumerate(ids):
                 engagement = chunk[i]
@@ -362,6 +363,7 @@ class Hubspot:
                 engagement["associations"] = {
                     "companies": {"results": companies},
                     "contacts": {"results": contacts},
+                    "deals": {"results": deals_associations.get(engagement_id, [])},
                 }
 
                 yield engagement, parser.isoparse(
