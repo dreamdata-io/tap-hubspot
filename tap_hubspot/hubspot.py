@@ -250,7 +250,7 @@ class Hubspot:
         end_date: datetime,
         properties: List[str],
         primary_key: str,
-        limit=100,
+        limit=200,
     ) -> Iterable[Dict]:
         path = f"/crm/v3/objects/{object_type}/search"
         after: int = 0
@@ -916,7 +916,7 @@ class Hubspot:
         max_tries=10,
         max_time=10 * 60,
     )
-    @limits(calls=100, period=10)
+    @limits(calls=110, period=10)
     def do(
         self,
         method: str,
