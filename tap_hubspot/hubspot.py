@@ -753,7 +753,7 @@ class Hubspot:
             return None, None
         for contact_id in self.event_state["contacts_events_ids"]:
             params = {
-                "limit": self.limit,
+                "limit": 100000,
                 "objectType": "contact",
                 "objectId": contact_id,
             }
