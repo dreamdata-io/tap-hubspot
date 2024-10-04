@@ -496,32 +496,61 @@ class Hubspot:
                 yield contact, replication_value
 
     def get_contact_lists(self) -> Iterable:
-        try:
-            self.test_endpoint("/contacts/v1/lists")
-        except requests.HTTPError as e:
-            # We assume the current token doesn't have the proper permissions
-            LOGGER.warn("insufficient permissions to get contact lists, skipping")
-            return []
+        offset = 0
+        replication_path = ["updatedAt"]
+        has_more = True
+        body = {
+            "processingType": ["MANUAL", "DYNAMIC", "SNAPSHOT"],
+            "count": 500,
+            "offset": offset,
+        }
+        path = f"/crm/v3/lists/search"
 
-        yield from self.get_records(
-            path="/contacts/v1/lists",
-            replication_path=["metaData", "lastSizeChangeAt"],
-            params={"count": 250},
-            data_field="lists",
-            offset_key="offset",
+        while has_more:
+            resp = self.do("POST", path, json=body)
+            data = resp.json()
+            for record in data["lists"]:
+                yield record, parser.isoparse(self.get_value(record, replication_path))
+
+            has_more = data["hasMore"]
+            offset = data["offset"]
+            body["offset"] = offset
+
+    def should_sync_contact_list(
+        self, contact_list: Dict, start_date: datetime
+    ) -> bool:
+        hs_last_record_removed_at = self.get_value(
+            contact_list, ["additionalProperties", "hs_last_record_removed_at"]
         )
+        if hs_last_record_removed_at:
+            hs_last_record_removed_at = parser.isoparse(hs_last_record_removed_at)
+
+        if hs_last_record_removed_at and (hs_last_record_removed_at >= start_date):
+            return True
+
+        hs_last_record_added_at = self.get_value(
+            contact_list, ["additionalProperties", "hs_last_record_added_at"]
+        )
+        if hs_last_record_added_at:
+            hs_last_record_added_at = parser.isoparse(hs_last_record_added_at)
+        if hs_last_record_added_at and (hs_last_record_added_at > start_date):
+            return True
+
+        return False
 
     def get_contacts_in_contact_lists(self) -> Iterable:
         for contact_list, _ in self.get_contact_lists():
+            if not self.should_sync_contact_list(contact_list):
+                continue
+
             list_id = contact_list["listId"]
             for contact, _ in self.get_records(
-                f"/contacts/v1/lists/{list_id}/contacts/all",
+                f"/crm/v3/lists/{list_id}/memberships/join-order",
                 params={
-                    "count": 500,
-                    "formSubmissionMode": "none",
+                    "limit": 250,
                 },
-                data_field="contacts",
-                offset_key="vidOffset",
+                data_field="results",
+                offset_key="after",
             ):
                 contact["list_id"] = list_id
                 yield contact, None
@@ -775,6 +804,7 @@ class Hubspot:
         record: Dict,
         visited_page_date: Optional[str],
         submitted_form_date: Optional[str],
+        contact_creation_date: Optional[str],
     ):
         contacts_start_date = self.event_state["contacts_start_date"]
         contacts_end_date = self.event_state["contacts_end_date"]
@@ -791,6 +821,13 @@ class Hubspot:
             if (
                 submitted_form_date > contacts_start_date
                 and submitted_form_date <= contacts_end_date
+            ):
+                return contact_id
+        if contact_creation_date:
+            contact_creation_date: datetime = parser.isoparse(contact_creation_date)
+            if (
+                contact_creation_date > contacts_start_date
+                and contact_creation_date <= contacts_end_date
             ):
                 return contact_id
         return None
@@ -818,10 +855,14 @@ class Hubspot:
         submitted_form_date: Optional[str] = self.get_value(
             record, ["properties", "recent_conversion_date"]
         )
+        contact_creation_date: Optional[str] = self.get_value(
+            record, ["properties", "createdate"]
+        )
         contact_id = self.check_contact_id(
             record=record,
             visited_page_date=visited_page_date,
             submitted_form_date=submitted_form_date,
+            contact_creation_date=contact_creation_date,
         )
         if contact_id:
             # contacts_events_ids is a persistent dictionary (shelve) backed by a file
