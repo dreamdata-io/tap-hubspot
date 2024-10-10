@@ -9,6 +9,7 @@ from typing import Dict, Iterable, Optional, DefaultDict, Set, List, Any, Tuple,
 
 from dateutil import parser
 import simplejson
+import json
 
 
 class RetryAfterReauth(Exception):
@@ -512,6 +513,9 @@ class Hubspot:
         )
 
     def get_contacts_in_contact_lists(self) -> Iterable:
+        event_settings = self.config.get("event_settings", {})
+        if event_settings:
+            LOGGER.info(f"got event settings from config: {json.dumps(event_settings)}")
         for contact_list, _ in self.get_contact_lists():
             list_id = contact_list["listId"]
             for contact, _ in self.get_records(
