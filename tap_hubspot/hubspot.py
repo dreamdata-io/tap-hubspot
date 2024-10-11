@@ -11,6 +11,8 @@ from dateutil import parser
 import simplejson
 import json
 
+from tap_hubspot.models import EventSettings
+
 
 class RetryAfterReauth(Exception):
     pass
@@ -497,35 +499,93 @@ class Hubspot:
                 yield contact, replication_value
 
     def get_contact_lists(self) -> Iterable:
-        try:
-            self.test_endpoint("/contacts/v1/lists")
-        except requests.HTTPError as e:
-            # We assume the current token doesn't have the proper permissions
-            LOGGER.warn("insufficient permissions to get contact lists, skipping")
-            return []
+        offset = 0
+        replication_path = ["updatedAt"]
+        has_more = True
+        body = {
+            "processingType": ["MANUAL", "DYNAMIC", "SNAPSHOT"],
+            "count": 500,
+            "offset": offset,
+        }
+        path = f"/crm/v3/lists/search"
 
-        yield from self.get_records(
-            path="/contacts/v1/lists",
-            replication_path=["metaData", "lastSizeChangeAt"],
-            params={"count": 250},
-            data_field="lists",
-            offset_key="offset",
-        )
+        while has_more:
+            resp = self.do("POST", path, json=body)
+            data = resp.json()
+            for record in data["lists"]:
+                yield record, parser.isoparse(self.get_value(record, replication_path))
+
+            has_more = data["hasMore"]
+            offset = data["offset"]
+            body["offset"] = offset
+
+    def should_sync_all_contact_list(self, event_settings: EventSettings) -> bool:
+        unique_operators = event_settings.get_unique_operators("contact_list")
+        if not unique_operators:
+            return False
+        full_sync_operators = {
+            "contains",
+            "not_contains",
+            "regexp_contains",
+            "not_regexp_contains",
+            "is_null",
+            "is_not_null",
+            "greater_than",
+            "less_than",
+            "greater_than_or_equal_to",
+            "less_than_or_equal_to",
+            "between",
+            "starts_with",
+            "ends_with",
+        }
+        if unique_operators.intersection(full_sync_operators):
+            return True
 
     def get_contacts_in_contact_lists(self) -> Iterable:
         event_settings = self.config.get("event_settings", {})
+<<<<<<< HEAD
         if event_settings:
             LOGGER.info(f"got event settings from config: {json.dumps(event_settings)}")
+=======
+        if not event_settings:
+            LOGGER.info(
+                "No event settings found, skipping syncing contacts in contact lists to save time"
+            )
+            return
+
+        parsed_event_settings = EventSettings(**self.config)
+        if self.should_sync_all_contact_list(parsed_event_settings):
+            LOGGER.info("Syncing all contacts in contact lists")
+            yield from self._get_contacts_in_contact_list()
+            return
+        else:
+            list_ids = parsed_event_settings.get_unique_values("contact_list", "listId")
+            names = parsed_event_settings.get_unique_values("contact_list", "name")
+            LOGGER.info(
+                f"Syncing contacts in contact lists based on event settings. List IDs: {list_ids}, Names: {names}"
+            )
+            yield from self._get_contacts_in_contact_list(
+                full_sync=False, list_ids=list_ids, list_names=names
+            )
+
+    def _get_contacts_in_contact_list(
+        self, full_sync: bool, list_ids: List[str], list_names: List[str]
+    ) -> Iterable:
+
+>>>>>>> 4e8b2c3 (sync contacts in contact lists based on event builder settings)
         for contact_list, _ in self.get_contact_lists():
-            list_id = contact_list["listId"]
+            if not full_sync:
+                list_id = contact_list["listId"]
+                list_name = contact_list["name"]
+                if (list_id not in list_ids) and (list_name not in list_names):
+                    continue
             for contact, _ in self.get_records(
-                f"/contacts/v1/lists/{list_id}/contacts/all",
+                f"/crm/v3/lists/{list_id}/memberships/join-order",
                 params={
-                    "count": 500,
-                    "formSubmissionMode": "none",
+                    "limit": 250,
                 },
-                data_field="contacts",
-                offset_key="vidOffset",
+                data_field="results",
+                offset_key="after",
             ):
                 contact["list_id"] = list_id
                 yield contact, None
