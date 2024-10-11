@@ -92,7 +92,7 @@ class Hubspot:
         elif tap_stream_id == "contacts":
             # tracking data sync is dependent on contacts sync
             # hubspot does not return tracking data for contacts that are recently created
-            # we need to always rewind 2 days to fetch the contacts
+            # we need to always rewind 1 day to fetch the contacts
             self.event_state["contacts_start_date"] = start_date
             self.event_state["contacts_end_date"] = end_date
             yield from self.get_contacts_v2(start_date, end_date)
@@ -839,6 +839,7 @@ class Hubspot:
         record: Dict,
         visited_page_date: Optional[str],
         submitted_form_date: Optional[str],
+        contact_creation_date: Optional[str],
     ):
         contacts_start_date = self.event_state["contacts_start_date"]
         contacts_end_date = self.event_state["contacts_end_date"]
@@ -855,6 +856,13 @@ class Hubspot:
             if (
                 submitted_form_date > contacts_start_date
                 and submitted_form_date <= contacts_end_date
+            ):
+                return contact_id
+        if contact_creation_date:
+            contact_creation_date: datetime = parser.isoparse(contact_creation_date)
+            if (
+                contact_creation_date > contacts_start_date
+                and contact_creation_date <= contacts_end_date
             ):
                 return contact_id
         return None
@@ -882,10 +890,14 @@ class Hubspot:
         submitted_form_date: Optional[str] = self.get_value(
             record, ["properties", "recent_conversion_date"]
         )
+        contact_creation_date: Optional[str] = self.get_value(
+            record, ["properties", "createdate"]
+        )
         contact_id = self.check_contact_id(
             record=record,
             visited_page_date=visited_page_date,
             submitted_form_date=submitted_form_date,
+            contact_creation_date=contact_creation_date,
         )
         if contact_id:
             # contacts_events_ids is a persistent dictionary (shelve) backed by a file
