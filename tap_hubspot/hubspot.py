@@ -520,7 +520,7 @@ class Hubspot:
             body["offset"] = offset
 
     def should_sync_all_contact_list(self, event_settings: EventSettings) -> bool:
-        unique_operators = event_settings.get_unique_operators("contact_list")
+        unique_operators = event_settings.get_unique_operators("contact_lists")
         if not unique_operators:
             return False
         full_sync_operators = {
@@ -543,10 +543,8 @@ class Hubspot:
 
     def get_contacts_in_contact_lists(self) -> Iterable:
         event_settings = self.config.get("event_settings", {})
-<<<<<<< HEAD
         if event_settings:
             LOGGER.info(f"got event settings from config: {json.dumps(event_settings)}")
-=======
         if not event_settings:
             LOGGER.info(
                 "No event settings found, skipping syncing contacts in contact lists to save time"
@@ -556,11 +554,15 @@ class Hubspot:
         parsed_event_settings = EventSettings(**self.config)
         if self.should_sync_all_contact_list(parsed_event_settings):
             LOGGER.info("Syncing all contacts in contact lists")
-            yield from self._get_contacts_in_contact_list()
+            yield from self._get_contacts_in_contact_list(
+                full_sync=True, list_ids=[], list_names=[]
+            )
             return
         else:
-            list_ids = parsed_event_settings.get_unique_values("contact_list", "listId")
-            names = parsed_event_settings.get_unique_values("contact_list", "name")
+            list_ids = parsed_event_settings.get_unique_values(
+                "contact_lists", "listId"
+            )
+            names = parsed_event_settings.get_unique_values("contact_lists", "name")
             LOGGER.info(
                 f"Syncing contacts in contact lists based on event settings. List IDs: {list_ids}, Names: {names}"
             )
@@ -572,13 +574,13 @@ class Hubspot:
         self, full_sync: bool, list_ids: List[str], list_names: List[str]
     ) -> Iterable:
 
->>>>>>> 4e8b2c3 (sync contacts in contact lists based on event builder settings)
         for contact_list, _ in self.get_contact_lists():
+            list_id = contact_list["listId"]
+            list_name = contact_list["name"]
             if not full_sync:
-                list_id = contact_list["listId"]
-                list_name = contact_list["name"]
                 if (list_id not in list_ids) and (list_name not in list_names):
                     continue
+            LOGGER.info(f"Syncing contacts in contact list: {list_name}")
             for contact, _ in self.get_records(
                 f"/crm/v3/lists/{list_id}/memberships/join-order",
                 params={
