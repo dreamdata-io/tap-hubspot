@@ -11,6 +11,8 @@ from dateutil import parser
 import simplejson
 import json
 
+from tap_hubspot.models import EventSettings
+
 
 class RetryAfterReauth(Exception):
     pass
@@ -90,7 +92,7 @@ class Hubspot:
         elif tap_stream_id == "contacts":
             # tracking data sync is dependent on contacts sync
             # hubspot does not return tracking data for contacts that are recently created
-            # we need to always rewind 2 days to fetch the contacts
+            # we need to always rewind 1 day to fetch the contacts
             self.event_state["contacts_start_date"] = start_date
             self.event_state["contacts_end_date"] = end_date
             yield from self.get_contacts_v2(start_date, end_date)
@@ -497,35 +499,95 @@ class Hubspot:
                 yield contact, replication_value
 
     def get_contact_lists(self) -> Iterable:
-        try:
-            self.test_endpoint("/contacts/v1/lists")
-        except requests.HTTPError as e:
-            # We assume the current token doesn't have the proper permissions
-            LOGGER.warn("insufficient permissions to get contact lists, skipping")
-            return []
+        offset = 0
+        replication_path = ["updatedAt"]
+        has_more = True
+        body = {
+            "processingType": ["MANUAL", "DYNAMIC", "SNAPSHOT"],
+            "count": 500,
+            "offset": offset,
+        }
+        path = f"/crm/v3/lists/search"
 
-        yield from self.get_records(
-            path="/contacts/v1/lists",
-            replication_path=["metaData", "lastSizeChangeAt"],
-            params={"count": 250},
-            data_field="lists",
-            offset_key="offset",
-        )
+        while has_more:
+            resp = self.do("POST", path, json=body)
+            data = resp.json()
+            for record in data["lists"]:
+                yield record, parser.isoparse(self.get_value(record, replication_path))
+
+            has_more = data["hasMore"]
+            offset = data["offset"]
+            body["offset"] = offset
+
+    def should_sync_all_contact_list(self, event_settings: EventSettings) -> bool:
+        unique_operators = event_settings.get_unique_operators("contact_lists")
+        if not unique_operators:
+            return False
+        full_sync_operators = {
+            "contains",
+            "not_contains",
+            "regexp_contains",
+            "not_regexp_contains",
+            "is_null",
+            "is_not_null",
+            "greater_than",
+            "less_than",
+            "greater_than_or_equal_to",
+            "less_than_or_equal_to",
+            "between",
+            "starts_with",
+            "ends_with",
+        }
+        if unique_operators.intersection(full_sync_operators):
+            return True
 
     def get_contacts_in_contact_lists(self) -> Iterable:
         event_settings = self.config.get("event_settings", {})
         if event_settings:
             LOGGER.info(f"got event settings from config: {json.dumps(event_settings)}")
+        if not event_settings:
+            LOGGER.info(
+                "No event settings found, skipping syncing contacts in contact lists to save time"
+            )
+            return
+
+        parsed_event_settings = EventSettings(**self.config)
+        if self.should_sync_all_contact_list(parsed_event_settings):
+            LOGGER.info("Syncing all contacts in contact lists")
+            yield from self._get_contacts_in_contact_list(
+                full_sync=True, list_ids=[], list_names=[]
+            )
+            return
+        else:
+            list_ids = parsed_event_settings.get_unique_values(
+                "contact_lists", "listId"
+            )
+            names = parsed_event_settings.get_unique_values("contact_lists", "name")
+            LOGGER.info(
+                f"Syncing contacts in contact lists based on event settings. List IDs: {list_ids}, Names: {names}"
+            )
+            yield from self._get_contacts_in_contact_list(
+                full_sync=False, list_ids=list_ids, list_names=names
+            )
+
+    def _get_contacts_in_contact_list(
+        self, full_sync: bool, list_ids: List[str], list_names: List[str]
+    ) -> Iterable:
+
         for contact_list, _ in self.get_contact_lists():
             list_id = contact_list["listId"]
+            list_name = contact_list["name"]
+            if not full_sync:
+                if (list_id not in list_ids) and (list_name not in list_names):
+                    continue
+            LOGGER.info(f"Syncing contacts in contact list: {list_name}")
             for contact, _ in self.get_records(
-                f"/contacts/v1/lists/{list_id}/contacts/all",
+                f"/crm/v3/lists/{list_id}/memberships/join-order",
                 params={
-                    "count": 500,
-                    "formSubmissionMode": "none",
+                    "limit": 250,
                 },
-                data_field="contacts",
-                offset_key="vidOffset",
+                data_field="results",
+                offset_key="after",
             ):
                 contact["list_id"] = list_id
                 yield contact, None
@@ -779,6 +841,7 @@ class Hubspot:
         record: Dict,
         visited_page_date: Optional[str],
         submitted_form_date: Optional[str],
+        contact_creation_date: Optional[str],
     ):
         contacts_start_date = self.event_state["contacts_start_date"]
         contacts_end_date = self.event_state["contacts_end_date"]
@@ -795,6 +858,13 @@ class Hubspot:
             if (
                 submitted_form_date > contacts_start_date
                 and submitted_form_date <= contacts_end_date
+            ):
+                return contact_id
+        if contact_creation_date:
+            contact_creation_date: datetime = parser.isoparse(contact_creation_date)
+            if (
+                contact_creation_date > contacts_start_date
+                and contact_creation_date <= contacts_end_date
             ):
                 return contact_id
         return None
@@ -822,10 +892,14 @@ class Hubspot:
         submitted_form_date: Optional[str] = self.get_value(
             record, ["properties", "recent_conversion_date"]
         )
+        contact_creation_date: Optional[str] = self.get_value(
+            record, ["properties", "createdate"]
+        )
         contact_id = self.check_contact_id(
             record=record,
             visited_page_date=visited_page_date,
             submitted_form_date=submitted_form_date,
+            contact_creation_date=contact_creation_date,
         )
         if contact_id:
             # contacts_events_ids is a persistent dictionary (shelve) backed by a file

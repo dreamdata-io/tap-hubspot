@@ -90,7 +90,7 @@ class Stream:
             # tracking data sync is dependent on contacts sync
             # hubspot does not return tracking data for contacts that are recently created
             # we need to always rewind 2 days to fetch the contacts
-            start_date = start_date - timedelta(days=2)
+            start_date = start_date - timedelta(days=1)
         LOGGER.info(f"using 'start_date' from previous state: {start_date}")
         return start_date, end_date
 

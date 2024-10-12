@@ -15,6 +15,7 @@ setup(
         "requests==2.22.0",
         "backoff>=1.3.2, <2",
         "ratelimit==2.2.1",
+        "pydantic==1.8.2",
     ],
     entry_points="""
           [console_scripts]
