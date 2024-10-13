@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 
 class Filter(BaseModel):
@@ -11,7 +11,7 @@ class Filter(BaseModel):
 
 class EventSetting(BaseModel):
     object: str
-    source_id: str
+    source_id: Optional[str]
     filters: List[List[Filter]]
 
 
