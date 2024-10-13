@@ -551,10 +551,10 @@ class Hubspot:
             )
             return
         event_settings_dict = json.loads(event_settings)
-
         parsed_event_settings = EventSettings(
             **dict(event_settings=event_settings_dict)
         )
+
         if self.should_sync_all_contact_list(parsed_event_settings):
             LOGGER.info("Syncing all contacts in contact lists")
             yield from self._get_contacts_in_contact_list(
