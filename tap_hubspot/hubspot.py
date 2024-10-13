@@ -544,7 +544,7 @@ class Hubspot:
     def get_contacts_in_contact_lists(self) -> Iterable:
         event_settings = self.config.get("event_settings", None)
         if event_settings:
-            LOGGER.info(f"got event settings from config: {json.dumps(event_settings)}")
+            LOGGER.info(f"got event settings from config: {event_settings}")
         if not event_settings:
             LOGGER.info(
                 "No event settings found, skipping syncing contacts in contact lists to save time"
