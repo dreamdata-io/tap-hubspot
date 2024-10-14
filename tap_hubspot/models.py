@@ -3,10 +3,10 @@ from typing import List, Optional
 
 
 class Filter(BaseModel):
-    operator: str
-    property: str
-    propertyType: str
-    values: List[str]
+    operator: Optional[str]
+    property: Optional[str]
+    propertyType: Optional[str]
+    values: Optional[List[str]]
 
 
 class EventSetting(BaseModel):
@@ -25,6 +25,8 @@ class EventSettings(BaseModel):
                 continue
             for filter in event_setting.filters:
                 for condition in filter:
+                    if not condition.operator:
+                        continue
                     operators.add(condition.operator)
         return operators
 
