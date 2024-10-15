@@ -12,7 +12,7 @@ class Filter(BaseModel):
 class EventSetting(BaseModel):
     object: str
     source_id: Optional[str]
-    filters: List[List[Filter]]
+    filters: Optional[List[List[Filter]]]
 
 
 class EventSettings(BaseModel):
@@ -22,6 +22,8 @@ class EventSettings(BaseModel):
         operators = set()
         for event_setting in self.event_settings:
             if event_setting.object != object:
+                continue
+            if not event_setting.filters:
                 continue
             for filter in event_setting.filters:
                 for condition in filter:
@@ -34,6 +36,8 @@ class EventSettings(BaseModel):
         values = set()
         for event_setting in self.event_settings:
             if event_setting.object != object:
+                continue
+            if not event_setting.filters:
                 continue
             for filter in event_setting.filters:
                 for condition in filter:
