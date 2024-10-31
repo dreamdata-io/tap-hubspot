@@ -280,7 +280,12 @@ class Hubspot:
                     continue
                 raise
 
-            data = resp.json()
+            try:
+                data = resp.json()
+            except simplejson.scanner.JSONDecodeError:
+                LOGGER.error(f"failed decode search JSON response: {resp.text}")
+                raise
+
             records = data.get("results", [])
 
             if not records:
