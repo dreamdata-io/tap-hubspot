@@ -1092,6 +1092,8 @@ class Hubspot:
         }
 
         resp = requests.post(self.BASE_URL + "/oauth/v1/token", data=payload)
+        if resp.status_code == 403:
+            raise InvalidCredentials(resp.text)
         resp.raise_for_status()
 
         if not resp:
