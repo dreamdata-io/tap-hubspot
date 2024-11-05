@@ -999,8 +999,8 @@ class Hubspot:
         ),
         giveup=giveup_http_codes,
         jitter=backoff.full_jitter,
-        max_tries=10,
-        max_time=10 * 60,
+        max_tries=20,
+        max_time=15 * 60,
     )
     @limits(calls=110, period=10)
     def do(
