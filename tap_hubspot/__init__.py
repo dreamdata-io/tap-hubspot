@@ -21,7 +21,7 @@ FREE_STREAMS = {
     "archived_contacts": {"bookmark_key": "archivedAt"},
     "archived_companies": {"bookmark_key": "archivedAt"},
     "archived_deals": {"bookmark_key": "archivedAt"},
-    "deal_pipelines": {"bookmark_key": "updatedAt"}
+    "deal_pipelines": {"bookmark_key": "updatedAt"},
 }
 
 ADVANCED_STREAMS = {
@@ -51,11 +51,11 @@ ADVANCED_STREAMS = {
 CUSTOM_STREAMS = [
     {
         # slug = "gopigment_com"
-        'portal_id': 8915701,
-        'streams': {
+        "portal_id": 8915701,
+        "streams": {
             "p8915701_marketing_engagements": {"bookmark_key": "updatedAt"},
-            "p8915701_marketing_engagement_properties": {"bookmark_key": "updatedAt"}
-            }
+            "p8915701_marketing_engagement_properties": {"bookmark_key": "updatedAt"},
+        },
     }
 ]
 
@@ -82,10 +82,7 @@ def sync(config, state=None):
         event_state["hs_calculated_form_submissions_guids"] = shelve.open(
             f"{temp_dirname}/hs_calculated_form_submissions_guids"
         )
-        hubspot = Hubspot(
-                    config = config, 
-                    event_state = event_state
-                )
+        hubspot = Hubspot(config=config, event_state=event_state)
         streams = FREE_STREAMS.copy()
         advanced_features_enabled = config.pop("advanced_features_enabled", False)
         if advanced_features_enabled:

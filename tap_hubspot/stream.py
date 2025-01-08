@@ -57,9 +57,7 @@ class Stream:
             date_source = self.tap_stream_id.split("_")[0]
             prev_bookmark = event_state[f"{date_source}_end_date"]
 
-        return (
-            self.__advance_bookmark(state, prev_bookmark)
-        )
+        return self.__advance_bookmark(state, prev_bookmark)
 
     def __get_start_end(self, state: dict):
         end_date = pytz.utc.localize(datetime.utcnow())
