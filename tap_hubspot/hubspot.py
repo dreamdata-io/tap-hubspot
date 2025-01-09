@@ -90,9 +90,6 @@ class Hubspot:
         elif tap_stream_id == "companies":
             yield from self.get_companies(start_date, end_date)
         elif tap_stream_id == "contacts":
-            # tracking data sync is dependent on contacts sync
-            # hubspot does not return tracking data for contacts that are recently created
-            # we need to always rewind 1 day to fetch the contacts
             self.event_state["contacts_start_date"] = start_date
             self.event_state["contacts_end_date"] = end_date
             yield from self.get_contacts_v2(start_date, end_date)
@@ -160,6 +157,10 @@ class Hubspot:
             )
         elif tap_stream_id == "p8915701_marketing_engagement_properties":
             yield from self.get_properties(f"p8915701_marketing_engagements")
+        elif tap_stream_id == "marketing_events":
+            yield from self.get_marketing_events()
+        elif tap_stream_id == "marketing_event_participations":
+            yield from self.get_marketing_event_participations(start_date=start_date)
         else:
             raise NotImplementedError(f"unknown stream_id: {tap_stream_id}")
 
@@ -843,6 +844,39 @@ class Hubspot:
                     )
                     continue
                 raise
+
+    def get_marketing_events(self):
+        path = "/marketing/v3/marketing-events"
+        data_field = "results"
+        offset_key = "after"
+        replication_path = ["updatedAt"]
+        params = {"limit": 100}
+        yield from self.get_records(
+            path,
+            replication_path=replication_path,
+            params=params,
+            data_field=data_field,
+            offset_key=offset_key,
+        )
+
+    def get_marketing_event_participations(self, start_date: datetime):
+        data_field = "results"
+        offset_key = "after"
+        replication_path = ["createdAt"]
+        params = {"limit": 100}
+        for event, update_at in self.get_marketing_events():
+            if update_at < start_date:
+                continue
+            event_id = event["objectId"]
+            path = f"/marketing/v3/marketing-events/participations/{event_id}/breakdown"
+            for record, replication_value in self.get_records(
+                path,
+                params=params,
+                data_field=data_field,
+                offset_key=offset_key,
+                replication_path=replication_path,
+            ):
+                yield record, replication_value
 
     def check_contact_id(
         self,
