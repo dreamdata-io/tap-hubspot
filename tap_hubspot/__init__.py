@@ -44,8 +44,8 @@ ADVANCED_STREAMS = {
     "campaigns": {},
     "communications": {"bookmark_key": "updatedAt"},
     "communication_properties": {"bookmark_key": "updatedAt"},
-    "marketing_events": {"bookmark_key": "updatedAt"},
-    "marketing_event_participations": {"bookmark_key": "createdAt"},
+    "marketing_events": {},
+    "marketing_event_participations": {},
 }
 
 CUSTOM_STREAMS = [
