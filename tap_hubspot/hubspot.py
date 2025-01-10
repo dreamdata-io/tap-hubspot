@@ -33,7 +33,7 @@ def giveup_http_codes(e: Exception):
     if isinstance(e, requests.HTTPError):
         # raised by response.raise_for_status()
         status_code = e.response.status_code
-        if status_code in {404, 400}:
+        if status_code in {404, 400, 500}:
             return True
 
     if isinstance(e, (requests.Timeout, requests.ConnectionError)):
@@ -160,7 +160,7 @@ class Hubspot:
         elif tap_stream_id == "marketing_events":
             yield from self.get_marketing_events()
         elif tap_stream_id == "marketing_event_participations":
-            yield from self.get_marketing_event_participations(start_date=start_date)
+            yield from self.get_marketing_event_participations()
         else:
             raise NotImplementedError(f"unknown stream_id: {tap_stream_id}")
 
@@ -849,34 +849,36 @@ class Hubspot:
         path = "/marketing/v3/marketing-events"
         data_field = "results"
         offset_key = "after"
-        replication_path = ["updatedAt"]
         params = {"limit": 100}
         yield from self.get_records(
             path,
-            replication_path=replication_path,
             params=params,
             data_field=data_field,
             offset_key=offset_key,
         )
 
-    def get_marketing_event_participations(self, start_date: datetime):
+    def get_marketing_event_participations(self):
         data_field = "results"
         offset_key = "after"
-        replication_path = ["createdAt"]
         params = {"limit": 100}
-        for event, update_at in self.get_marketing_events():
-            if update_at < start_date:
-                continue
+        for event, _ in self.get_marketing_events():
             event_id = event["objectId"]
             path = f"/marketing/v3/marketing-events/participations/{event_id}/breakdown"
-            for record, replication_value in self.get_records(
-                path,
-                params=params,
-                data_field=data_field,
-                offset_key=offset_key,
-                replication_path=replication_path,
-            ):
-                yield record, replication_value
+            try:
+                for record, replication_value in self.get_records(
+                    path,
+                    params=params,
+                    data_field=data_field,
+                    offset_key=offset_key,
+                ):
+                    yield record, replication_value
+
+            except requests.exceptions.HTTPError as err:
+                if err.response.status_code == 500:
+                    LOGGER.info(
+                        f"Hubspot Marketing Event API is in Beta and may return 500 internal server error randomly. We ignore this issue for now. Error: {err.response.text}"
+                    )
+                    continue
 
     def check_contact_id(
         self,
