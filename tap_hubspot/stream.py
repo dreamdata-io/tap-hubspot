@@ -9,22 +9,33 @@ LOGGER = singer.get_logger()
 
 
 class Stream:
-    def __init__(self, config: Dict, tap_stream_id: str, stream_config: Dict):
+    def __init__(
+        self,
+        config: Dict,
+        tap_stream_id: str,
+        bookmark_key: str,
+    ):
         self.tap_stream_id = tap_stream_id
-        self.bookmark_key = stream_config.get("bookmark_key")
+        self.bookmark_key = bookmark_key
         self.config = config
 
-    def do_sync(self, state: Dict, hubspot: Hubspot):
+    def sync_properties(self, hubspot: Hubspot):
+        table_name = f"{self.tap_stream_id}_properties"
+        data = hubspot.get_properties(self.tap_stream_id)
+        for record, _ in data:
+            singer.write_record(table_name, record)
+        return
 
+    def do_sync(self, hubspot: Hubspot, is_custom_object: bool, state: dict):
         prev_bookmark = None
         start_date, end_date = self.__get_start_end(state)
         with singer.metrics.record_counter(self.tap_stream_id) as counter:
-
             try:
                 data = hubspot.streams(
                     start_date=start_date,
                     end_date=end_date,
                     tap_stream_id=self.tap_stream_id,
+                    is_custom_object=is_custom_object,
                 )
                 for record, replication_value in data:
 

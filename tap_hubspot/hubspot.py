@@ -84,8 +84,16 @@ class Hubspot:
         self.event_state = event_state
         self.timeout = timeout
 
-    def streams(self, start_date: datetime, end_date: datetime, tap_stream_id: str):
-        if tap_stream_id == "owners":
+    def streams(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        tap_stream_id: str,
+        is_custom_object: bool,
+    ):
+        if is_custom_object:
+            yield from self.get_custom_object(start_date, end_date, tap_stream_id)
+        elif tap_stream_id == "owners":
             yield from self.get_owners()
         elif tap_stream_id == "companies":
             yield from self.get_companies(start_date, end_date)
@@ -109,22 +117,6 @@ class Hubspot:
             yield from self.get_submissions()
         elif tap_stream_id == "contacts_events":
             yield from self.get_contacts_events()
-        elif tap_stream_id == "deal_properties":
-            yield from self.get_properties("deals")
-        elif tap_stream_id == "contact_properties":
-            yield from self.get_properties("contacts")
-        elif tap_stream_id == "company_properties":
-            yield from self.get_properties("companies")
-        elif tap_stream_id == "task_properties":
-            yield from self.get_properties("tasks")
-        elif tap_stream_id == "note_properties":
-            yield from self.get_properties("notes")
-        elif tap_stream_id == "call_properties":
-            yield from self.get_properties("calls")
-        elif tap_stream_id == "meeting_properties":
-            yield from self.get_properties("meetings")
-        elif tap_stream_id == "email_properties":
-            yield from self.get_properties("emails")
         elif tap_stream_id == "archived_contacts":
             yield from self.get_archived_contacts()
         elif tap_stream_id == "archived_companies":
@@ -147,16 +139,6 @@ class Hubspot:
             yield from self.get_campaigns()
         elif tap_stream_id == "communications":
             yield from self.get_communications(start_date=start_date, end_date=end_date)
-        elif tap_stream_id == "communication_properties":
-            yield from self.get_properties("communications")
-        elif tap_stream_id == "p8915701_marketing_engagements":
-            yield from self.get_marketing_engagements(
-                start_date=start_date,
-                end_date=end_date,
-                obj_type="p8915701_marketing_engagements",
-            )
-        elif tap_stream_id == "p8915701_marketing_engagement_properties":
-            yield from self.get_properties(f"p8915701_marketing_engagements")
         elif tap_stream_id == "marketing_events":
             yield from self.get_marketing_events()
         elif tap_stream_id == "marketing_event_participations":
@@ -791,7 +773,7 @@ class Hubspot:
                 record["form_id"] = guid
                 yield record, replication_key
 
-    def get_marketing_engagements(
+    def get_custom_object(
         self, start_date: datetime, end_date: datetime, obj_type
     ) -> Iterable[Tuple[Dict, datetime]]:
         filter_key = "hs_lastmodifieddate"
@@ -1095,7 +1077,7 @@ class Hubspot:
             response.raise_for_status()
             return response
 
-    def get_portal_id(self):
+    def get_portal_id(self) -> int:
         try:
             resp = self.do("GET", f"/integrations/v1/me")
             return resp.json()["portalId"]

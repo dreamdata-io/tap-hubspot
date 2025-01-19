@@ -15,6 +15,14 @@ class EventSetting(BaseModel):
     filters: Optional[List[List[Filter]]]
 
 
+class Table(BaseModel):
+    name: str
+    bookmark_key: Optional[str]
+    should_sync_properties: Optional[bool] = False
+    is_custom_object: Optional[bool] = False
+    portal_id: Optional[int]
+
+
 class EventSettings(BaseModel):
     event_settings: List[EventSetting]
 
