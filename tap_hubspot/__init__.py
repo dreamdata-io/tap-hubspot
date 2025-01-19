@@ -8,56 +8,131 @@ from singer import utils
 from tap_hubspot.stream import Stream
 from tap_hubspot.hubspot import Hubspot, InvalidCredentials, MissingScope
 from collections import defaultdict
-from typing import DefaultDict, Set
+from typing import DefaultDict, Set, List
+from tap_hubspot.models import Table
 
-FREE_STREAMS = {
-    "companies": {"bookmark_key": "updatedAt"},
-    "contacts": {"bookmark_key": "updatedAt"},
-    "deals": {"bookmark_key": "updatedAt"},
-    "owners": {"bookmark_key": "updatedAt"},
-    "deal_properties": {"bookmark_key": "updatedAt"},
-    "contact_properties": {"bookmark_key": "updatedAt"},
-    "company_properties": {"bookmark_key": "updatedAt"},
-    "archived_contacts": {"bookmark_key": "archivedAt"},
-    "archived_companies": {"bookmark_key": "archivedAt"},
-    "archived_deals": {"bookmark_key": "archivedAt"},
-    "deal_pipelines": {"bookmark_key": "updatedAt"},
-}
-
-ADVANCED_STREAMS = {
-    "forms": {"bookmark_key": "updatedAt"},
-    "contacts_events": {"bookmark_key": "lastSynced"},
-    "contact_lists": {"bookmark_key": "lastSizeChangeAt"},
-    "contacts_in_contact_lists": {},
-    "submissions": {"bookmark_key": "submittedAt"},
-    "email_events": {"bookmark_key": "created"},
-    "note_properties": {"bookmark_key": "updatedAt"},
-    "task_properties": {"bookmark_key": "updatedAt"},
-    "call_properties": {"bookmark_key": "updatedAt"},
-    "meeting_properties": {"bookmark_key": "updatedAt"},
-    "email_properties": {"bookmark_key": "updatedAt"},
-    "calls": {"bookmark_key": "lastUpdated"},
-    "meetings": {"bookmark_key": "lastUpdated"},
-    "notes": {"bookmark_key": "lastUpdated"},
-    "tasks": {"bookmark_key": "lastUpdated"},
-    "emails": {"bookmark_key": "lastUpdated"},
-    "campaigns": {},
-    "communications": {"bookmark_key": "updatedAt"},
-    "communication_properties": {"bookmark_key": "updatedAt"},
-    "marketing_events": {},
-    "marketing_event_participations": {},
-}
+FREE_STREAMS = [
+    Table(
+        name="companies",
+        bookmark_key="updatedAt",
+        should_sync_properties=True,
+    ),
+    Table(
+        name="contacts",
+        bookmark_key="updatedAt",
+        should_sync_properties=True,
+    ),
+    Table(
+        name="deals",
+        bookmark_key="updatedAt",
+        should_sync_properties=True,
+    ),
+    Table(
+        name="owners",
+        bookmark_key="updatedAt",
+    ),
+    Table(
+        name="archived_contacts",
+        bookmark_key="archivedAt",
+    ),
+    Table(
+        name="archived_companies",
+        bookmark_key="archivedAt",
+    ),
+    Table(
+        name="archived_deals",
+        bookmark_key="archivedAt",
+    ),
+    Table(
+        name="deal_pipelines",
+        bookmark_key="updatedAt",
+    ),
+]
+ADVANCED_STREAMS = [
+    Table(
+        name="forms",
+        bookmark_key="updatedAt",
+    ),
+    Table(
+        name="contacts_events",
+        bookmark_key="lastSynced",
+    ),
+    Table(
+        name="contact_lists",
+        bookmark_key="lastSizeChangeAt",
+    ),
+    Table(
+        name="contacts_in_contact_lists",
+    ),
+    Table(
+        name="submissions",
+        bookmark_key="submittedAt",
+    ),
+    Table(
+        name="email_events",
+        bookmark_key="created",
+    ),
+    Table(
+        name="calls",
+        bookmark_key="lastUpdated",
+        should_sync_properties=True,
+    ),
+    Table(
+        name="meetings",
+        bookmark_key="lastUpdated",
+        should_sync_properties=True,
+    ),
+    Table(
+        name="notes",
+        bookmark_key="lastUpdated",
+        should_sync_properties=True,
+    ),
+    Table(
+        name="tasks",
+        bookmark_key="lastUpdated",
+        should_sync_properties=True,
+    ),
+    Table(
+        name="emails",
+        bookmark_key="lastUpdated",
+        should_sync_properties=True,
+    ),
+    Table(
+        name="campaigns",
+    ),
+    Table(
+        name="communications",
+        bookmark_key="updatedAt",
+    ),
+    Table(
+        name="communication_properties",
+        bookmark_key="updatedAt",
+    ),
+    Table(
+        name="marketing_events",
+    ),
+    Table(
+        name="marketing_event_participations",
+    ),
+]
 
 CUSTOM_STREAMS = [
-    {
-        # slug = "gopigment_com"
-        "portal_id": 8915701,
-        "streams": {
-            "p8915701_marketing_engagements": {"bookmark_key": "updatedAt"},
-            "p8915701_marketing_engagement_properties": {"bookmark_key": "updatedAt"},
-        },
-    }
+    Table(
+        name="p8915701_marketing_engagements",
+        bookmark_key="updatedAt",
+        should_sync_properties=True,
+        is_custom_object=True,
+        portal_id=8915701,
+    ),
+    Table(
+        name="p139792148_Yapp_Account",
+        bookmark_key="updatedAt",
+        should_sync_properties=True,
+        is_custom_object=True,
+        portal_id=139792148,
+    ),
 ]
+
 
 REQUIRED_CONFIG_KEYS = [
     "start_date",
@@ -70,7 +145,7 @@ REQUIRED_CONFIG_KEYS = [
 LOGGER = singer.get_logger()
 
 
-def sync(config, state=None):
+def sync(config: dict, state=None):
     with tempfile.TemporaryDirectory(
         prefix=f"{os.getcwd()}/temp_event_state_"
     ) as temp_dirname:
@@ -83,25 +158,24 @@ def sync(config, state=None):
             f"{temp_dirname}/hs_calculated_form_submissions_guids"
         )
         hubspot = Hubspot(config=config, event_state=event_state)
-        streams = FREE_STREAMS.copy()
-        advanced_features_enabled = config.pop("advanced_features_enabled", False)
-        if advanced_features_enabled:
-            LOGGER.info("advanced features enabled for account")
-            streams.update(ADVANCED_STREAMS)
-        portal_id = hubspot.get_portal_id()
-        for stream in CUSTOM_STREAMS:
-            if portal_id == stream["portal_id"]:
-                streams.update(stream["streams"])
-        for tap_stream_id, stream_config in streams.items():
+        tables = get_tables(
+            advanced_features_enabled=config.get("advanced_features_enabled", False),
+            portal_id=hubspot.get_portal_id(),
+        )
+
+        for table in tables:
             try:
-                LOGGER.info(f"syncing {tap_stream_id}")
                 stream = Stream(
                     config=config,
-                    tap_stream_id=tap_stream_id,
-                    stream_config=stream_config,
+                    tap_stream_id=table.name,
+                    bookmark_key=table.bookmark_key,
                 )
+                if table.should_sync_properties:
+                    LOGGER.info(f"syncing {table.name} properties")
+                    stream.sync_properties(hubspot)
+                LOGGER.info(f"syncing {table.name}")
+                state = stream.do_sync(hubspot, table.is_custom_object, state)
 
-                state = stream.do_sync(state, hubspot)
             except InvalidCredentials:
                 LOGGER.exception(f"Invalid credentials")
                 sys.exit(5)
@@ -109,8 +183,20 @@ def sync(config, state=None):
                 LOGGER.exception(err)
                 continue
             except Exception:
-                LOGGER.exception(f"{tap_stream_id} failed")
+                LOGGER.exception(f"{table.name} failed")
                 sys.exit(1)
+
+
+def get_tables(advanced_features_enabled: bool, portal_id: int) -> List[Table]:
+    streams = FREE_STREAMS.copy()
+    if advanced_features_enabled:
+        LOGGER.info("advanced features enabled for account")
+        streams = streams + ADVANCED_STREAMS
+    for stream in CUSTOM_STREAMS:
+        if not (portal_id == stream.portal_id):
+            continue
+        streams.append(stream)
+    return streams
 
 
 @utils.handle_top_exception(LOGGER)
