@@ -103,10 +103,7 @@ ADVANCED_STREAMS = [
     Table(
         name="communications",
         bookmark_key="updatedAt",
-    ),
-    Table(
-        name="communication_properties",
-        bookmark_key="updatedAt",
+        should_sync_properties=True,
     ),
     Table(
         name="marketing_events",
