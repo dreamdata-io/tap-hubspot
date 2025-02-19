@@ -121,12 +121,21 @@ CUSTOM_STREAMS = [
         is_custom_object=True,
         portal_id=8915701,
     ),
+    # yodeck_com
     Table(
         name="p139792148_Yapp_Account",
         bookmark_key="updatedAt",
         should_sync_properties=True,
         is_custom_object=True,
         portal_id=139792148,
+    ),
+    # aldevron_com
+    Table(
+        name="tickets",
+        bookmark_key="updatedAt",
+        should_sync_properties=True,
+        is_custom_object=True,
+        portal_id=1769030,
     ),
 ]
 
