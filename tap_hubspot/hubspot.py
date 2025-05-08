@@ -846,21 +846,13 @@ class Hubspot:
         for event, _ in self.get_marketing_events():
             event_id = event["objectId"]
             path = f"/marketing/v3/marketing-events/participations/{event_id}/breakdown"
-            try:
-                for record, replication_value in self.get_records(
-                    path,
-                    params=params,
-                    data_field=data_field,
-                    offset_key=offset_key,
-                ):
-                    yield record, replication_value
-
-            except requests.exceptions.HTTPError as err:
-                if err.response.status_code == 500:
-                    LOGGER.info(
-                        f"Hubspot Marketing Event API is in Beta and may return 500 internal server error randomly. We ignore this issue for now. Error: {err.response.text}"
-                    )
-                    continue
+            for record, replication_value in self.get_records(
+                path,
+                params=params,
+                data_field=data_field,
+                offset_key=offset_key,
+            ):
+                yield record, replication_value
 
     def check_contact_id(
         self,
