@@ -33,7 +33,7 @@ def giveup_http_codes(e: Exception):
     if isinstance(e, requests.HTTPError):
         # raised by response.raise_for_status()
         status_code = e.response.status_code
-        if status_code in {404, 400, 500}:
+        if status_code in {404, 400}:
             return True
 
     if isinstance(e, (requests.Timeout, requests.ConnectionError)):
