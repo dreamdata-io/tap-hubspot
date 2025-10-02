@@ -109,3 +109,4 @@ settings.json
 temp_*
 poetry.lock
 pyproject.toml
+state.json
