@@ -127,6 +127,7 @@ class Stream:
 
     def __advance_bookmark(self, state: dict, bookmark: Union[str, datetime, None], replication_method: str):
         if not bookmark:
+            state = singer.write_bookmark(state, self.tap_stream_id, Replication.key, replication_method)
             singer.write_state(state)
             return state
 
