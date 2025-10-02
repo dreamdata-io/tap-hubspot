@@ -8,6 +8,12 @@ import pytz
 LOGGER = singer.get_logger()
 
 
+class Replication:
+    key = "replication_method"
+    full_table = "FULL_TABLE"  # means we replace all records in the table
+    incremental = "INCREMENTAL"  # means we append new records to the table
+
+
 class Stream:
     def __init__(
         self,
@@ -29,6 +35,12 @@ class Stream:
     def do_sync(self, hubspot: Hubspot, is_custom_object: bool, state: dict):
         prev_bookmark = None
         start_date, end_date = self.__get_start_end(state)
+
+        replication_method = Replication.incremental
+        completed_successfully = False
+        if self.tap_stream_id in ["contacts_in_contact_lists"]:
+            replication_method = Replication.full_table
+
         with singer.metrics.record_counter(self.tap_stream_id) as counter:
             try:
                 data = hubspot.streams(
@@ -49,18 +61,25 @@ class Stream:
                         prev_bookmark = new_bookmark
 
                     if prev_bookmark < new_bookmark:
-                        state = self.__advance_bookmark(state, prev_bookmark)
+                        state = self.__advance_bookmark(state, prev_bookmark, replication_method)
                         prev_bookmark = new_bookmark
+                completed_successfully = True
                 return self.output_state(
                     state=state,
                     prev_bookmark=prev_bookmark,
                     event_state=hubspot.event_state,
+                    replication_method=replication_method,
                 )
 
             finally:
-                self.__advance_bookmark(state, prev_bookmark)
+                if (
+                    not completed_successfully
+                    and replication_method == Replication.full_table
+                ):
+                    replication_method = Replication.incremental
+                self.__advance_bookmark(state, prev_bookmark, replication_method)
 
-    def output_state(self, state, prev_bookmark, event_state):
+    def output_state(self, state, prev_bookmark, event_state, replication_method):
 
         if self.tap_stream_id in [
             "contacts_events",
@@ -68,7 +87,7 @@ class Stream:
             date_source = self.tap_stream_id.split("_")[0]
             prev_bookmark = event_state[f"{date_source}_end_date"]
 
-        return self.__advance_bookmark(state, prev_bookmark)
+        return self.__advance_bookmark(state, prev_bookmark, replication_method)
 
     def __get_start_end(self, state: dict):
         end_date = pytz.utc.localize(datetime.utcnow())
@@ -106,8 +125,9 @@ class Stream:
         LOGGER.info(f"using 'start_date' from previous state: {start_date}")
         return start_date, end_date
 
-    def __advance_bookmark(self, state: dict, bookmark: Union[str, datetime, None]):
+    def __advance_bookmark(self, state: dict, bookmark: Union[str, datetime, None], replication_method: str):
         if not bookmark:
+            state = singer.write_bookmark(state, self.tap_stream_id, Replication.key, replication_method)
             singer.write_state(state)
             return state
 
@@ -122,6 +142,10 @@ class Stream:
 
         state = singer.write_bookmark(
             state, self.tap_stream_id, self.bookmark_key, bookmark_datetime.isoformat()
+        )
+
+        state = singer.write_bookmark(
+            state, self.tap_stream_id, Replication.key, replication_method
         )
         singer.write_state(state)
         return state
