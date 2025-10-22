@@ -18,6 +18,12 @@ class RetryAfterReauth(Exception):
     pass
 
 
+class BadRequest(Exception):
+    def __init__(self, message, response=None):
+        super().__init__(message)
+        self.response = response
+
+
 class InvalidCredentials(Exception):
     pass
 
@@ -179,8 +185,9 @@ class Hubspot:
 
                 deal["propertiesWithHistory"] = property_history.get(deal_id, {})
 
-                yield deal, parser.isoparse(
-                    self.get_value(deal, ["properties", filter_key])
+                yield (
+                    deal,
+                    parser.isoparse(self.get_value(deal, ["properties", filter_key])),
                 )
 
     def get_object_properties(self, obj_type: str) -> List[str]:
@@ -363,8 +370,9 @@ class Hubspot:
                     "deals": {"results": deals_associations.get(engagement_id, [])},
                 }
 
-                yield engagement, parser.isoparse(
-                    self.get_value(engagement, replication_path)
+                yield (
+                    engagement,
+                    parser.isoparse(self.get_value(engagement, replication_path)),
                 )
 
     def get_properties(self, object_type: str):
@@ -452,8 +460,9 @@ class Hubspot:
         )
 
         for company in companies:
-            yield company, parser.isoparse(
-                self.get_value(company, ["properties", filter_key])
+            yield (
+                company,
+                parser.isoparse(self.get_value(company, ["properties", filter_key])),
             )
 
     def get_contacts_v2(
@@ -564,7 +573,6 @@ class Hubspot:
     def _get_contacts_in_contact_list(
         self, full_sync: bool, list_ids: List[str], list_names: List[str]
     ) -> Iterable:
-
         for contact_list, _ in self.get_contact_lists():
             list_id = contact_list["listId"]
             list_name = contact_list["name"]
@@ -932,7 +940,6 @@ class Hubspot:
         for record in self.paginate(
             path, params=params, data_field=data_field, offset_key=offset_key
         ):
-
             try:
                 replication_value = self.milliseconds_to_datetime(
                     self.get_value(record, replication_path)
@@ -1058,13 +1065,16 @@ class Hubspot:
                 # if there is no category, the error message is a legacy error message, and might have another
                 # format. https://legacydocs.hubspot.com/docs/faq/api-error-responses
                 if err_msg.get("category") is None:
-                    if (
-                        "You do not have permissions to view object type"
-                        in err_msg.get("message")
+                    if "You do not have permissions to view object type" in err_msg.get(
+                        "message"
                     ):
                         raise MissingScope(err_msg)
                 if err_msg.get("category") == "MISSING_SCOPES":
                     raise MissingScope(err_msg)
+
+            if response.status_code == 400:
+                raise BadRequest(f"Bad Request: {response.text}", response=response)
+
             LOGGER.debug(response.url)
             response.raise_for_status()
             return response
