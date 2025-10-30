@@ -149,6 +149,10 @@ class Hubspot:
             yield from self.get_marketing_events()
         elif tap_stream_id == "marketing_event_participations":
             yield from self.get_marketing_event_participations()
+        elif tap_stream_id == "marketing_campaigns_list":
+            yield from self.get_marketing_campaigns_list()
+        elif tap_stream_id == "marketing_campaigns":
+            yield from self.get_marketing_campaigns()
         else:
             raise NotImplementedError(f"unknown stream_id: {tap_stream_id}")
 
@@ -708,6 +712,42 @@ class Hubspot:
             data_field=data_field,
             offset_key=offset_key,
         )
+    
+    def get_marketing_campaign_list(self) -> Iterable:
+        path = "/marketing/v3/campaigns"
+        data_field = "results"
+        offset_key = "after"
+        replication_path = ["updatedAt"]
+        params = {"properties": "hs_name,hs_object_id"}
+        try:
+            yield from self.get_records(
+                path, replication_path, params, data_field=data_field, offset_key=offset_key
+            )
+        except MissingScope:
+            LOGGER.info(
+                "The company's account does not have access to Marketing Campaigns. Skipping marketing_campaigns_list stream."
+            )
+            return
+    
+    def get_marketing_campaigns(self):
+        params = {"properties": "hs_name,hs_object_id"}
+        for campaign, _ in self.get_marketing_campaign_list():
+            campaign_id = campaign["id"]
+            try:
+                resp = self.do(method="GET", url=f"/marketing/v3/campaigns/{campaign_id}", params=params)
+            except requests.HTTPError as e:
+                if e.response.status_code == 404:
+                    LOGGER.warning(
+                        f"campaign {campaign_id} doesn't exist anymore, skipping"
+                    )
+                    continue
+                raise
+            except MissingScope:
+                LOGGER.info(
+                    "The account does not have access to Marketing Campaigns. Skipping marketing_campaigns stream."
+                )
+                break
+            yield resp.json(), None
 
     def get_campaign_list(self) -> Iterable:
         yield from self.get_records(
@@ -723,7 +763,7 @@ class Hubspot:
                 resp = self.do("GET", f"/email/public/v1/campaigns/{campaign_id}")
             except requests.HTTPError as e:
                 if e.response.status_code == 404:
-                    LOGGER.warn(
+                    LOGGER.warning(
                         f"campaign {campaign_id} doesn't exist anymore, skipping"
                     )
                     continue
@@ -1087,7 +1127,7 @@ class Hubspot:
             LOGGER.exception(f"Invalid credentials")
             sys.exit(5)
         except requests.HTTPError as e:
-            LOGGER.warn("Failed to get portal ID")
+            LOGGER.warning("Failed to get portal ID")
             return
 
     def test_endpoint(self, url, params={}):
