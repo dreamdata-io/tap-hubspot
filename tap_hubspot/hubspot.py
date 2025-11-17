@@ -153,6 +153,9 @@ class Hubspot:
             yield from self.get_marketing_campaigns_list()
         elif tap_stream_id == "marketing_campaigns":
             yield from self.get_marketing_campaigns()
+        elif tap_stream_id == "users_teams":
+            yield from self.get_users_teams()
+
         else:
             raise NotImplementedError(f"unknown stream_id: {tap_stream_id}")
 
@@ -901,6 +904,20 @@ class Hubspot:
                 offset_key=offset_key,
             ):
                 yield record, replication_value
+    
+    def get_users_teams(self):
+        data_field = "results"
+        path = "/settings/v3/users/teams"
+        try:
+            yield from self.get_records(
+                path,
+                data_field=data_field,
+            )
+        except MissingScope:
+            LOGGER.info(
+                "The account does not have access to Users and Teams API. Skipping users_teams stream."
+            )
+            return
 
     def check_contact_id(
         self,

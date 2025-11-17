@@ -114,6 +114,9 @@ ADVANCED_STREAMS = [
     Table(
         name="marketing_campaigns",
     ),
+    Table(
+        name="users_teams",
+    ),
 ]
 
 CUSTOM_STREAMS = [
