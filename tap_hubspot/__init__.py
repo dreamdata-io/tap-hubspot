@@ -58,13 +58,6 @@ ADVANCED_STREAMS = [
         bookmark_key="lastSynced",
     ),
     Table(
-        name="contact_lists",
-        bookmark_key="lastSizeChangeAt",
-    ),
-    Table(
-        name="contacts_in_contact_lists",
-    ),
-    Table(
         name="submissions",
         bookmark_key="submittedAt",
     ),
@@ -116,6 +109,13 @@ ADVANCED_STREAMS = [
     ),
     Table(
         name="users_teams",
+    ),
+    Table(
+        name="contact_lists",
+        bookmark_key="lastSizeChangeAt",
+    ),
+    Table(
+        name="contacts_in_contact_lists",
     ),
 ]
 
