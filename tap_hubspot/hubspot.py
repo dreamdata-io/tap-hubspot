@@ -897,13 +897,22 @@ class Hubspot:
         for event, _ in self.get_marketing_events():
             event_id = event["objectId"]
             path = f"/marketing/v3/marketing-events/participations/{event_id}/breakdown"
-            for record, replication_value in self.get_records(
-                path,
-                params=params,
-                data_field=data_field,
-                offset_key=offset_key,
-            ):
-                yield record, replication_value
+            try:
+                for record, replication_value in self.get_records(
+                    path,
+                    params=params,
+                    data_field=data_field,
+                    offset_key=offset_key,
+                ):
+                    yield record, replication_value
+            except requests.exceptions.HTTPError as err:
+                if err.response.status_code >= 500 or err.response.status_code == 400:
+                    LOGGER.warning(
+                        f"Error fetching participations for marketing event {event_id}, "
+                        f"status: {err.response.status_code}, error: {err.response.text}. Skipping."
+                    )
+                    continue
+                raise
     
     def get_users_teams(self):
         data_field = "results"
