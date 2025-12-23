@@ -905,7 +905,13 @@ class Hubspot:
                     offset_key=offset_key,
                 ):
                     yield record, replication_value
-            except requests.exceptions.HTTPError as err:
+            except (requests.exceptions.HTTPError, RetryAfterReauth) as err:
+                if isinstance(err, RetryAfterReauth):
+                    LOGGER.warning(
+                        f"Error fetching participations for marketing event {event_id}, "
+                        f"gave up after retries (RetryAfterReauth). Skipping."
+                    )
+                    continue
                 if err.response.status_code >= 500 or err.response.status_code == 400:
                     LOGGER.warning(
                         f"Error fetching participations for marketing event {event_id}, "
@@ -1082,8 +1088,8 @@ class Hubspot:
         ),
         giveup=giveup_http_codes,
         jitter=backoff.full_jitter,
-        max_tries=20,
-        max_time=15 * 60,
+        max_tries=10,
+        max_time=5 * 60,
     )
     @limits(calls=110, period=10)
     def do(
