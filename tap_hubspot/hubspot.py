@@ -508,6 +508,7 @@ class Hubspot:
         has_more = True
         body = {
             "processingType": ["MANUAL", "DYNAMIC", "SNAPSHOT"],
+            "objectTypeId": "0-1",
             "count": 500,
             "offset": offset,
         }
@@ -715,7 +716,7 @@ class Hubspot:
             data_field=data_field,
             offset_key=offset_key,
         )
-    
+
     def get_marketing_campaign_list(self) -> Iterable:
         path = "/marketing/v3/campaigns"
         data_field = "results"
@@ -724,20 +725,28 @@ class Hubspot:
         params = {"properties": "hs_name,hs_object_id"}
         try:
             yield from self.get_records(
-                path, replication_path, params, data_field=data_field, offset_key=offset_key
+                path,
+                replication_path,
+                params,
+                data_field=data_field,
+                offset_key=offset_key,
             )
         except MissingScope:
             LOGGER.info(
                 "The company's account does not have access to Marketing Campaigns. Skipping marketing_campaigns_list stream."
             )
             return
-    
+
     def get_marketing_campaigns(self):
         params = {"properties": "hs_name,hs_object_id"}
         for campaign, _ in self.get_marketing_campaign_list():
             campaign_id = campaign["id"]
             try:
-                resp = self.do(method="GET", url=f"/marketing/v3/campaigns/{campaign_id}", params=params)
+                resp = self.do(
+                    method="GET",
+                    url=f"/marketing/v3/campaigns/{campaign_id}",
+                    params=params,
+                )
             except requests.HTTPError as e:
                 if e.response.status_code == 404:
                     LOGGER.warning(
@@ -919,7 +928,7 @@ class Hubspot:
                     )
                     continue
                 raise
-    
+
     def get_users_teams(self):
         data_field = "results"
         path = "/settings/v3/users/teams"
