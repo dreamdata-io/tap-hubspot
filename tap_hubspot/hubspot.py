@@ -928,7 +928,7 @@ class Hubspot:
                     )
                     continue
                 raise
-    
+
     def get_users_teams(self):
         data_field = "results"
         path = "/settings/v3/users/teams"
@@ -1145,8 +1145,8 @@ class Hubspot:
 
                 # if there is no category, the error message is a legacy error message, and might have another
                 # format. https://legacydocs.hubspot.com/docs/faq/api-error-responses
-                if "You do not have permissions to view object type" in err_msg.get(
                 if err_msg.get("category") is None:
+                    if "You do not have permissions to view object type" in err_msg.get(
                         "message"
                     ):
                         raise MissingScope(err_msg)
