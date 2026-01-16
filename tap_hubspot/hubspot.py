@@ -153,6 +153,9 @@ class Hubspot:
             yield from self.get_marketing_campaigns_list()
         elif tap_stream_id == "marketing_campaigns":
             yield from self.get_marketing_campaigns()
+        elif tap_stream_id == "users_teams":
+            yield from self.get_users_teams()
+
         else:
             raise NotImplementedError(f"unknown stream_id: {tap_stream_id}")
 
@@ -903,13 +906,42 @@ class Hubspot:
         for event, _ in self.get_marketing_events():
             event_id = event["objectId"]
             path = f"/marketing/v3/marketing-events/participations/{event_id}/breakdown"
-            for record, replication_value in self.get_records(
+            try:
+                for record, replication_value in self.get_records(
+                    path,
+                    params=params,
+                    data_field=data_field,
+                    offset_key=offset_key,
+                ):
+                    yield record, replication_value
+            except (requests.exceptions.HTTPError, RetryAfterReauth) as err:
+                if isinstance(err, RetryAfterReauth):
+                    LOGGER.warning(
+                        f"Error fetching participations for marketing event {event_id}, "
+                        f"gave up after retries (RetryAfterReauth). Skipping."
+                    )
+                    continue
+                if err.response.status_code >= 500 or err.response.status_code == 400:
+                    LOGGER.warning(
+                        f"Error fetching participations for marketing event {event_id}, "
+                        f"status: {err.response.status_code}, error: {err.response.text}. Skipping."
+                    )
+                    continue
+                raise
+    
+    def get_users_teams(self):
+        data_field = "results"
+        path = "/settings/v3/users/teams"
+        try:
+            yield from self.get_records(
                 path,
-                params=params,
                 data_field=data_field,
-                offset_key=offset_key,
-            ):
-                yield record, replication_value
+            )
+        except MissingScope:
+            LOGGER.info(
+                "The account does not have access to Users and Teams API. Skipping users_teams stream."
+            )
+            return
 
     def check_contact_id(
         self,
@@ -1065,8 +1097,8 @@ class Hubspot:
         ),
         giveup=giveup_http_codes,
         jitter=backoff.full_jitter,
-        max_tries=20,
-        max_time=15 * 60,
+        max_tries=10,
+        max_time=5 * 60,
     )
     @limits(calls=110, period=10)
     def do(
