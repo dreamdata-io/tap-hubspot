@@ -908,7 +908,6 @@ class Hubspot:
             path = f"/marketing/v3/marketing-events/participations/{event_id}/breakdown"
             try:
                 for record, replication_value in self.get_records(
-
                     path,
                     params=params,
                     data_field=data_field,
