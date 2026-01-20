@@ -21,6 +21,7 @@ class Table(BaseModel):
     should_sync_properties: Optional[bool] = False
     is_custom_object: Optional[bool] = False
     portal_id: Optional[int]
+    continue_on_error: Optional[bool] = False
 
 
 class EventSettings(BaseModel):
