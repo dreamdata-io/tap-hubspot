@@ -908,6 +908,7 @@ class Hubspot:
             path = f"/marketing/v3/marketing-events/participations/{event_id}/breakdown"
             try:
                 for record, replication_value in self.get_records(
+
                     path,
                     params=params,
                     data_field=data_field,
@@ -921,7 +922,7 @@ class Hubspot:
                         f"gave up after retries (RetryAfterReauth). Skipping."
                     )
                     continue
-                if err.response.status_code >= 500 or err.response.status_code == 400:
+                if err.response.status_code >= 400:
                     LOGGER.warning(
                         f"Error fetching participations for marketing event {event_id}, "
                         f"status: {err.response.status_code}, error: {err.response.text}. Skipping."
