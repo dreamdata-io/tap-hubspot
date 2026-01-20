@@ -130,12 +130,12 @@ ADVANCED_STREAMS = [
     Table(
         name="submissions",
         bookmark_key="submittedAt",
-        continue_on_error=True,
+        continue_on_error=False,
     ),
     Table(
         name="contacts_events",
         bookmark_key="lastSynced",
-        continue_on_error=True,
+        continue_on_error=False,
     ),
     Table(
         name="contacts_in_contact_lists",
