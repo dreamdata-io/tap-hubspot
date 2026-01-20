@@ -16,28 +16,34 @@ FREE_STREAMS = [
         name="companies",
         bookmark_key="updatedAt",
         should_sync_properties=True,
+        continue_on_error=False,
     ),
     Table(
         name="contacts",
         bookmark_key="updatedAt",
         should_sync_properties=True,
+        continue_on_error=False,
     ),
     Table(
         name="deals",
         bookmark_key="updatedAt",
         should_sync_properties=True,
+        continue_on_error=False,
     ),
     Table(
         name="owners",
         bookmark_key="updatedAt",
+        continue_on_error=False,
     ),
     Table(
         name="archived_contacts",
         bookmark_key="archivedAt",
+        continue_on_error=False,
     ),
     Table(
         name="archived_companies",
         bookmark_key="archivedAt",
+        continue_on_error=False,
     ),
     Table(
         name="archived_deals",
@@ -46,76 +52,94 @@ FREE_STREAMS = [
     Table(
         name="deal_pipelines",
         bookmark_key="updatedAt",
+        continue_on_error=False,
     ),
 ]
 ADVANCED_STREAMS = [
     Table(
-        name="forms",
-        bookmark_key="updatedAt",
-    ),
-    Table(
-        name="contacts_events",
-        bookmark_key="lastSynced",
-    ),
-    Table(
-        name="submissions",
-        bookmark_key="submittedAt",
-    ),
-    Table(
-        name="email_events",
-        bookmark_key="created",
-    ),
-    Table(
         name="calls",
         bookmark_key="lastUpdated",
         should_sync_properties=True,
+        continue_on_error=False,
     ),
     Table(
         name="meetings",
         bookmark_key="lastUpdated",
         should_sync_properties=True,
+        continue_on_error=False,
     ),
     Table(
         name="notes",
         bookmark_key="lastUpdated",
         should_sync_properties=True,
+        continue_on_error=False,
     ),
     Table(
         name="tasks",
         bookmark_key="lastUpdated",
         should_sync_properties=True,
+        continue_on_error=False,
+    ),
+    Table(
+        name="campaigns",
+        continue_on_error=False,
     ),
     Table(
         name="emails",
         bookmark_key="lastUpdated",
         should_sync_properties=True,
-    ),
-    Table(
-        name="campaigns",
+        continue_on_error=False,
     ),
     Table(
         name="communications",
         bookmark_key="updatedAt",
         should_sync_properties=True,
-    ),
-    Table(
-        name="marketing_events",
-    ),
-    Table(
-        name="marketing_event_participations",
-    ),
-    Table(
-        name="marketing_campaigns",
-    ),
-    Table(
-        name="users_teams",
+        continue_on_error=False,
     ),
     Table(
         name="contact_lists",
         bookmark_key="lastSizeChangeAt",
+        continue_on_error=False,
+    ),
+    Table(
+        name="email_events",
+        bookmark_key="created",
+        continue_on_error=False,
+    ),
+    Table(
+        name="marketing_campaigns",
+        continue_on_error=False,
+    ),
+    Table(
+        name="users_teams",
+        continue_on_error=False,
+    ),
+    Table(
+        name="marketing_events",
+        continue_on_error=False,
+    ),
+    Table(
+        name="marketing_event_participations",
+        continue_on_error=True,
+    ),
+    Table(
+        name="forms",
+        bookmark_key="updatedAt",
+        continue_on_error=False,
+    ),
+    Table(
+        name="submissions",
+        bookmark_key="submittedAt",
+        continue_on_error=True,
+    ),
+    Table(
+        name="contacts_events",
+        bookmark_key="lastSynced",
+        continue_on_error=True,
     ),
     Table(
         name="contacts_in_contact_lists",
+        continue_on_error=True,
     ),
 ]
 
@@ -126,6 +150,7 @@ CUSTOM_STREAMS = [
         should_sync_properties=True,
         is_custom_object=True,
         portal_id=8915701,
+        continue_on_error=False,
     ),
     # yodeck_com
     Table(
@@ -134,6 +159,7 @@ CUSTOM_STREAMS = [
         should_sync_properties=True,
         is_custom_object=True,
         portal_id=139792148,
+        continue_on_error=False,
     ),
     # aldevron_com
     Table(
@@ -142,6 +168,7 @@ CUSTOM_STREAMS = [
         should_sync_properties=True,
         is_custom_object=True,
         portal_id=1769030,
+        continue_on_error=False,
     ),
 ]
 
@@ -195,6 +222,9 @@ def sync(config: dict, state=None):
                 LOGGER.exception(err)
                 continue
             except Exception:
+                if table.continue_on_error:
+                    LOGGER.warning(f"The {table.name} failed but continuing to next stream")
+                    continue
                 LOGGER.exception(f"{table.name} failed")
                 sys.exit(1)
 
