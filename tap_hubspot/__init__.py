@@ -222,10 +222,10 @@ def sync(config: dict, state=None):
                 LOGGER.exception(err)
                 continue
             except Exception:
+                LOGGER.exception(f"{table.name} failed")
                 if table.continue_on_error:
                     LOGGER.warning(f"The {table.name} failed but continuing to next stream")
                     continue
-                LOGGER.exception(f"{table.name} failed")
                 sys.exit(1)
 
 
