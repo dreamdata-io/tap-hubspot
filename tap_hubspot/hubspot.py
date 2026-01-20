@@ -922,7 +922,7 @@ class Hubspot:
                         f"gave up after retries (RetryAfterReauth). Skipping."
                     )
                     continue
-                if err.response.status_code >= 400:
+                if err.response.status_code >= 400:  # This is a temporary solution to handle repeating errors
                     LOGGER.warning(
                         f"Error fetching participations for marketing event {event_id}, "
                         f"status: {err.response.status_code}, error: {err.response.text}. Skipping."
