@@ -747,6 +747,11 @@ class Hubspot:
                     url=f"/marketing/v3/campaigns/{campaign_id}",
                     params=params,
                 )
+            except BadRequest as e:
+                LOGGER.warning(
+                    f"Bad request for campaign {campaign_id}, skipping. Error: {str(e)}"
+                )
+                continue
             except requests.HTTPError as e:
                 if e.response.status_code == 404:
                     LOGGER.warning(
@@ -921,7 +926,9 @@ class Hubspot:
                         f"gave up after retries (RetryAfterReauth). Skipping."
                     )
                     continue
-                if err.response.status_code >= 400:  # This is a temporary solution to handle repeating errors
+                if (
+                    err.response.status_code >= 400
+                ):  # This is a temporary solution to handle repeating errors
                     LOGGER.warning(
                         f"Error fetching participations for marketing event {event_id}, "
                         f"status: {err.response.status_code}, error: {err.response.text}. Skipping."
@@ -1146,8 +1153,9 @@ class Hubspot:
                 # if there is no category, the error message is a legacy error message, and might have another
                 # format. https://legacydocs.hubspot.com/docs/faq/api-error-responses
                 if err_msg.get("category") is None:
-                    if "You do not have permissions to view object type" in err_msg.get(
-                        "message"
+                    if (
+                        "You do not have permissions to view object type"
+                        in err_msg.get("message")
                     ):
                         raise MissingScope(err_msg)
                 if err_msg.get("category") == "MISSING_SCOPES":
