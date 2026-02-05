@@ -747,7 +747,12 @@ class Hubspot:
                     url=f"/marketing/v3/campaigns/{campaign_id}",
                     params=params,
                 )
-            except requests.HTTPError as e:
+            except (requests.HTTPError, BadRequest) as e:
+                if isinstance(e, BadRequest):
+                    LOGGER.warning(
+                        f"Bad request for campaign {campaign_id}, skipping. Error: {str(e)}"
+                    )
+                    continue
                 if e.response.status_code == 404:
                     LOGGER.warning(
                         f"campaign {campaign_id} doesn't exist anymore, skipping"
