@@ -39,7 +39,7 @@ def giveup_http_codes(e: Exception):
     if isinstance(e, requests.HTTPError):
         # raised by response.raise_for_status()
         status_code = e.response.status_code
-        if status_code in {404, 400}:
+        if status_code in {400, 403, 404}:
             return True
 
     if isinstance(e, (requests.Timeout, requests.ConnectionError)):
@@ -926,9 +926,13 @@ class Hubspot:
                         f"gave up after retries (RetryAfterReauth). Skipping."
                     )
                     continue
-                if (
-                    err.response.status_code >= 400
-                ):  # This is a temporary solution to handle repeating errors
+                if err.response.status_code == 403:
+                    LOGGER.warning(
+                        f"403 Forbidden for marketing event participations (event {event_id}). "
+                        f"Skipping entire stream. Error: {err.response.text}"
+                    )
+                    return
+                if err.response.status_code >= 400:
                     LOGGER.warning(
                         f"Error fetching participations for marketing event {event_id}, "
                         f"status: {err.response.status_code}, error: {err.response.text}. Skipping."
