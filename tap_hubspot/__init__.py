@@ -38,16 +38,17 @@ FREE_STREAMS = [
     Table(
         name="archived_contacts",
         bookmark_key="archivedAt",
-        continue_on_error=False,
+        continue_on_error=True,
     ),
     Table(
         name="archived_companies",
         bookmark_key="archivedAt",
-        continue_on_error=False,
+        continue_on_error=True,
     ),
     Table(
         name="archived_deals",
         bookmark_key="archivedAt",
+        continue_on_error=True,
     ),
     Table(
         name="deal_pipelines",
