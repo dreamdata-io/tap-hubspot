@@ -884,7 +884,15 @@ class Hubspot:
                     path, params=params, data_field=data_field, offset_key=offset_key
                 ):
                     yield record, replication_value
-            except requests.exceptions.HTTPError as err:
+            except (requests.exceptions.HTTPError, BadRequest) as err:
+                # Handle BadRequest exceptions (e.g., event types stored in LAKEHOUSE)
+                if isinstance(err, BadRequest):
+                    LOGGER.info(
+                        f"contact tracking events can not be retrieved for this contact id {contact_id}, "
+                        f"error: {err}. Skipping this contact."
+                    )
+                    continue
+                # Handle HTTPError exceptions
                 if err.response.status_code == 400:
                     LOGGER.info(
                         f"contact tracking events can not be retrieved for this contact id {contact_id},error: {err.response.text}"
